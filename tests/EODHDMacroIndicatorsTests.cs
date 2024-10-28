@@ -15,10 +15,8 @@
 */
 
 using System;
-using ProtoBuf;
 using System.IO;
 using System.Linq;
-using ProtoBuf.Meta;
 using Newtonsoft.Json;
 using NUnit.Framework;
 using QuantConnect.Data;
@@ -27,7 +25,7 @@ using QuantConnect.DataSource;
 namespace QuantConnect.DataLibrary.Tests
 {
     [TestFixture]
-    public class MyCustomDataTypeTests
+    public class EODHDMacroIndicatorsTests
     {
         [Test]
         public void JsonRoundTrip()
@@ -38,26 +36,6 @@ namespace QuantConnect.DataLibrary.Tests
             var result = JsonConvert.DeserializeObject(serialized, type);
 
             AssertAreEqual(expected, result);
-        }
-
-        [Test]
-        public void ProtobufRoundTrip()
-        {
-            var expected = CreateNewInstance();
-            var type = expected.GetType();
-
-            RuntimeTypeModel.Default[typeof(BaseData)].AddSubType(2000, type);
-
-            using (var stream = new MemoryStream())
-            {
-                Serializer.Serialize(stream, expected);
-
-                stream.Position = 0;
-
-                var result = Serializer.Deserialize(type, stream);
-
-                AssertAreEqual(expected, result, filterByCustomAttributes: true);
-            }
         }
 
         [Test]
@@ -87,7 +65,7 @@ namespace QuantConnect.DataLibrary.Tests
 
         private BaseData CreateNewInstance()
         {
-            return new MyCustomDataType
+            return new EODHDMacroIndicators
             {
                 Symbol = Symbol.Empty,
                 Time = DateTime.Today,
