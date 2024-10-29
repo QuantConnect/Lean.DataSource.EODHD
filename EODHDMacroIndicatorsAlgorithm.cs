@@ -15,30 +15,27 @@
 */
 
 using QuantConnect.Data;
-using QuantConnect.Util;
-using QuantConnect.Orders;
 using QuantConnect.Algorithm;
 using QuantConnect.DataSource;
 
 namespace QuantConnect.DataLibrary.Tests
 {
     /// <summary>
-    /// Example algorithm using the custom data type as a source of alpha
+    /// Example algorithm using the EODHDMacroIndicators as a source of alpha
     /// </summary>
     public class EODHDMacroIndicatorsAlgorithm : QCAlgorithm
     {
-        private Symbol _customDataSymbol;
-        private Symbol _equitySymbol;
+        private Symbol _equitySymbol, _datasetSymbol;
 
         /// <summary>
         /// Initialise the data and resolution required, as well as the cash and start-end dates for your algorithm. All algorithms must initialized.
         /// </summary>
         public override void Initialize()
         {
-            SetStartDate(2013, 10, 07);  //Set Start Date
-            SetEndDate(2013, 10, 11);    //Set End Date
+            SetStartDate(2020, 10, 07);  //Set Start Date
+            SetEndDate(2022, 10, 11);    //Set End Date
             _equitySymbol = AddEquity("SPY").Symbol;
-            _customDataSymbol = AddData<EODHDMacroIndicators>(_equitySymbol).Symbol;
+            _datasetSymbol = AddData<EODHDMacroIndicators>(EODHD.MacroIndicators.UnitedStates.GdpGrowthAnnual).Symbol;
         }
 
         /// <summary>
@@ -48,29 +45,16 @@ namespace QuantConnect.DataLibrary.Tests
         public override void OnData(Slice slice)
         {
             var data = slice.Get<EODHDMacroIndicators>();
-            if (!data.IsNullOrEmpty())
+            if (data.TryGetValue(_datasetSymbol, out var gdp))
             {
-                // based on the custom data property we will buy or short the underlying equity
-                if (data[_customDataSymbol].SomeCustomProperty == "buy")
+                if (gdp.Value > 0m)
                 {
                     SetHoldings(_equitySymbol, 1);
                 }
-                else if (data[_customDataSymbol].SomeCustomProperty == "sell")
+                else
                 {
                     SetHoldings(_equitySymbol, -1);
                 }
-            }
-        }
-
-        /// <summary>
-        /// Order fill event handler. On an order fill update the resulting information is passed to this method.
-        /// </summary>
-        /// <param name="orderEvent">Order event details containing details of the events</param>
-        public override void OnOrderEvent(OrderEvent orderEvent)
-        {
-            if (orderEvent.Status.IsFill())
-            {
-                Debug($"Purchased Stock: {orderEvent.Symbol}");
             }
         }
     }

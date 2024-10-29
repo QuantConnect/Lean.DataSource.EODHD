@@ -14,7 +14,6 @@
 */
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -22,13 +21,12 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using QuantConnect.Configuration;
 using QuantConnect.Data.Auxiliary;
-using QuantConnect.DataSource;
+using QuantConnect.Interfaces;
 using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Logging;
 using QuantConnect.Util;
@@ -36,29 +34,26 @@ using QuantConnect.Util;
 namespace QuantConnect.DataProcessing
 {
     /// <summary>
-    /// EODHDMacroIndicatorsUniverseDataDownloader implementation.
+    /// EODHDMacroIndicatorsDataDownloader implementation.
     /// </summary>
-    public class EODHDMacroIndicatorsUniverseDataDownloader : IDisposable
+    public class EODHDMacroIndicatorsDataDownloader : IDisposable
     {
-        public const string VendorName = "VendorName";
-        public const string VendorDataName = "VendorDataName";
+        public const string VendorName = "eodhd";
+        public const string VendorDataName = "macroindicators";
+        
+        // 1-year warm up (some annual frequency indicators)
+        private readonly DateTime _epochTime = new DateTime(1997, 1, 1);
         
         private readonly string _destinationFolder;
-        private readonly string _universeFolder;
-        private readonly string _clientKey;
-        private readonly string _dataFolder = Globals.DataFolder;
-        private readonly bool _canCreateUniverseFiles;
+        private readonly string _apiToken;
+        private readonly IMapFileProvider _mapFileProvider;
         private readonly int _maxRetries = 5;
-        private static readonly List<char> _defunctDelimiters = new()
-        {
-            '-',
-            '_'
-        };
-        private ConcurrentDictionary<string, ConcurrentQueue<string>> _tempData = new();
         
         private readonly JsonSerializerSettings _jsonSerializerSettings = new()
         {
-            DateTimeZoneHandling = DateTimeZoneHandling.Utc
+            DateTimeZoneHandling = DateTimeZoneHandling.Utc,
+            NullValueHandling = NullValueHandling.Ignore,
+            Converters = new List<JsonConverter> { new ZeroDateTimeJsonConverter("yyyy-MM-dd") }
         };
 
         /// <summary>
@@ -67,22 +62,22 @@ namespace QuantConnect.DataProcessing
         private readonly RateGate _indexGate;
 
         /// <summary>
-        /// Creates a new instance of <see cref="MyCustomData"/>
+        /// Creates a new instance of <see cref="EODHDMacroIndicatorsDataDownloader"/>
         /// </summary>
         /// <param name="destinationFolder">The folder where the data will be saved</param>
         /// <param name="apiKey">The Vendor API key</param>
-        public EODHDMacroIndicatorsUniverseDataDownloader(string destinationFolder, string apiKey = null)
+        public EODHDMacroIndicatorsDataDownloader(string destinationFolder, string apiKey = null)
         {
-            _destinationFolder = Path.Combine(destinationFolder, VendorDataName);
-            _universeFolder = Path.Combine(_destinationFolder, "universe");
-            _clientKey = apiKey ?? Config.Get("vendor-auth-token");
-            _canCreateUniverseFiles = Directory.Exists(Path.Combine(_dataFolder, "equity", "usa", "map_files"));
+            _destinationFolder = Path.Combine(destinationFolder, VendorName, VendorDataName);
+            _apiToken = apiKey ?? Config.Get("vendor-auth-token");
+
+            _mapFileProvider = new LocalZipMapFileProvider();
+            _mapFileProvider.Initialize(new DefaultDataProvider());
 
             // Represents rate limits of 10 requests per 1.1 second
             _indexGate = new RateGate(10, TimeSpan.FromSeconds(1.1));
 
             Directory.CreateDirectory(_destinationFolder);
-            Directory.CreateDirectory(_universeFolder);
         }
 
         /// <summary>
@@ -92,11 +87,90 @@ namespace QuantConnect.DataProcessing
         public bool Run()
         {
             var stopwatch = Stopwatch.StartNew();
-            var today = DateTime.UtcNow.Date;
 
-            throw new NotImplementedException();
+            try
+            {
+                if (!Config.TryGetValue<List<string>>("country-codes", out var countries))
+                {
+                    Log.Error(
+                        $"EODHDMacroIndicatorsDataDownloader.Run(): Unable to fetch country list for API call");
+                    return false;
+                }
 
-            Log.Trace($"EODHDMacroIndicatorsUniverseDataDownloader.Run(): Finished in {stopwatch.Elapsed.ToStringInvariant(null)}");
+                if (!Config.TryGetValue<List<string>>("indicators", out var indicators))
+                {
+                    Log.Error(
+                        $"EODHDMacroIndicatorsDataDownloader.Run(): Unable to fetch macro indicator list for API call");
+                    return false;
+                }
+
+                var tasks = new List<Task>();
+
+                foreach (var country in countries)
+                {
+                    var csvContents = new List<string>();
+
+                    foreach (var indicator in indicators)
+                    {
+                        Log.Trace(
+                            $"EODHDMacroIndicatorsDataDownloader.Run(): Start processing macro indicators of {country} - {indicator}");
+
+                        tasks.Add(
+                            HttpRequester($"{country}?indicator={indicator}&api_token={_apiToken}&fmt=json")
+                                .ContinueWith(
+                                    y =>
+                                    {
+                                        if (y.IsFaulted)
+                                        {
+                                            Log.Error(
+                                                $"EODHDMacroIndicatorsDataDownloader.Run(): Failed to get data for {country} - {indicator}");
+                                            return;
+                                        }
+
+                                        var result = y.Result;
+                                        if (string.IsNullOrEmpty(result))
+                                        {
+                                            // We've already logged inside HttpRequester
+                                            return;
+                                        }
+
+                                        List<EODHDMacroIndicatorsData> data = JsonConvert.DeserializeObject<List<EODHDMacroIndicatorsData>>(result, _jsonSerializerSettings);
+
+                                        foreach (var datum in data.Where(x => x.Date >= _epochTime && x.Value != 0m))
+                                        {
+                                            csvContents.Add($"{datum.Date:yyyyMMdd},{country},{indicator},{datum.Period},{datum.Value}");
+                                        }
+                                    }
+                                )
+                        );
+
+                        if (tasks.Count == 10)
+                        {
+                            Task.WaitAll(tasks.ToArray());
+                            tasks.Clear();
+                        }
+                    }
+
+                    if (tasks.Count != 0)
+                    {
+                        Task.WaitAll(tasks.ToArray());
+                        tasks.Clear();
+                    }
+
+                    if (csvContents.Count > 0)
+                    {
+                        SaveContentToFile(_destinationFolder, country, csvContents);
+                    }
+                }
+                
+            }
+            catch (Exception e)
+            {
+                Log.Error(e);
+                return false;
+            }
+
+            Log.Trace($"EODHDMacroIndicatorsDataDownloader.Run(): Finished in {stopwatch.Elapsed.ToStringInvariant(null)}");
             return true;
         }
 
@@ -114,23 +188,16 @@ namespace QuantConnect.DataProcessing
                 {
                     using (var client = new HttpClient())
                     {
-                        client.BaseAddress = new Uri("<base-api-endpoint>");
+                        client.BaseAddress = new Uri("https://eodhd.com/api/macro-indicator/");
                         client.DefaultRequestHeaders.Clear();
-
-                        // You must supply your API key in the HTTP header,
-                        // otherwise you will receive a 403 Forbidden response
-                        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Token", _clientKey);
-
-                        // Responses are in JSON: you need to specify the HTTP header Accept: application/json
-                        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                         
-                        // Makes sure we don't overrun Quiver rate limits accidentally
+                        // Makes sure we don't overrun eodhd rate limits accidentally
                         _indexGate.WaitToProceed();
 
                         var response = await client.GetAsync(Uri.EscapeUriString(url));
                         if (response.StatusCode == HttpStatusCode.NotFound)
                         {
-                            Log.Error($"EODHDMacroIndicatorsUniverseDataDownloader.HttpRequester(): Files not found at url: {Uri.EscapeUriString(url)}");
+                            Log.Error($"EODHDMacroIndicatorsDataDownloader.HttpRequester(): Files not found at url: {Uri.EscapeUriString(url)}");
                             response.DisposeSafely();
                             return string.Empty;
                         }
@@ -151,7 +218,7 @@ namespace QuantConnect.DataProcessing
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e, $"EODHDMacroIndicatorsUniverseDataDownloader.HttpRequester(): Error at HttpRequester. (retry {retries}/{_maxRetries})");
+                    Log.Error(e, $"EODHDMacroIndicatorsDataDownloader.HttpRequester(): Error at HttpRequester. (retry {retries}/{_maxRetries})");
                     Thread.Sleep(1000);
                 }
             }
@@ -167,6 +234,7 @@ namespace QuantConnect.DataProcessing
         /// <param name="contents">Contents to write</param>
         private void SaveContentToFile(string destinationFolder, string name, IEnumerable<string> contents)
         {
+            Directory.CreateDirectory(destinationFolder);
             name = name.ToLowerInvariant();
             var finalPath = Path.Combine(destinationFolder, $"{name}.csv");
             var finalFileExists = File.Exists(finalPath);
@@ -180,49 +248,28 @@ namespace QuantConnect.DataProcessing
                 }
             }
 
-            var finalLines = destinationFolder.Contains("universe") ? 
-                lines.OrderBy(x => x.Split(',').First()).ToList() :
-                lines
+            var finalLines = lines
                 .OrderBy(x => DateTime.ParseExact(x.Split(',').First(), "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal))
                 .ToList();
 
-            var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.tmp");
-            File.WriteAllLines(tempPath, finalLines);
-            var tempFilePath = new FileInfo(tempPath);
-            tempFilePath.MoveTo(finalPath, true);
+            File.WriteAllLines(finalPath, finalLines);
         }
 
         /// <summary>
-        /// Tries to normalize a potentially defunct ticker into a normal ticker.
+        /// Represents items of the list of macro indicators supported by EODHD
         /// </summary>
-        /// <param name="ticker">Ticker as received from Estimize</param>
-        /// <param name="nonDefunctTicker">Set as the non-defunct ticker</param>
-        /// <returns>true for success, false for failure</returns>
-        private static bool TryNormalizeDefunctTicker(string ticker, out string nonDefunctTicker)
+        /// <remarks>actual, change, change_percentage are not deserialized since only forward data are processed</remarks>
+        private class EODHDMacroIndicatorsData
         {
-            // The "defunct" indicator can be in any capitalization/case
-            if (ticker.IndexOf("defunct", StringComparison.OrdinalIgnoreCase) > 0)
-            {
-                foreach (var delimChar in _defunctDelimiters)
-                {
-                    var length = ticker.IndexOf(delimChar);
+            [JsonProperty("Date")]
+            [JsonConverter(typeof(ZeroDateTimeJsonConverter), "yyyy-MM-dd")]
+            public DateTime Date { get; set; }
+            
+            [JsonProperty("Period")]
+            public string Period { get; set; }
 
-                    // Continue until we exhaust all delimiters
-                    if (length == -1)
-                    {
-                        continue;
-                    }
-
-                    nonDefunctTicker = ticker[..length].Trim();
-                    return true;
-                }
-
-                nonDefunctTicker = string.Empty;
-                return false;
-            }
-
-            nonDefunctTicker = ticker;
-            return true;
+            [JsonProperty("Value")]
+            public decimal Value { get; set; }
         }
 
         /// <summary>
