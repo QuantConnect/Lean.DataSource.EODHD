@@ -41,7 +41,7 @@ namespace QuantConnect.DataSource
         /// <summary>
         /// The representation period of the indicator
         /// </summary>
-        public string Frequency { get; set; }
+        public EODHD.Frequency Frequency { get; set; }
 
         /// <summary>
         /// Time passed between the date of the data and the time the data became available to us
@@ -94,13 +94,18 @@ namespace QuantConnect.DataSource
                 return null;
             }
 
+            if (!Enum.TryParse<EODHD.Frequency>(csv[3], true, out var frequency))
+            {
+                frequency = EODHD.Frequency.Unknown;
+            }
+
             return new EODHDMacroIndicators
             {
                 Symbol = config.Symbol,
                 Time = Parse.DateTimeExact(csv[0], "yyyyMMdd") - Period,
                 Country = csv[1],
                 Indicator = csv[2],
-                Frequency = csv[3],
+                Frequency = frequency,
                 Value = decimal.Parse(csv[4], NumberStyles.Any, CultureInfo.InvariantCulture)
             };
         }
