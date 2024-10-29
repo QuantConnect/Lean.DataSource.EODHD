@@ -43,16 +43,6 @@ namespace QuantConnect.DataSource
         public EODHD.Frequency Frequency { get; set; }
 
         /// <summary>
-        /// Time passed between the date of the data and the time the data became available to us
-        /// </summary>
-        public TimeSpan Period { get; set; } = TimeSpan.FromDays(1);
-
-        /// <summary>
-        /// Time the data became available
-        /// </summary>
-        public override DateTime EndTime => Time + Period;
-
-        /// <summary>
         /// Return the URL string source of the file. This will be converted to a stream
         /// </summary>
         /// <param name="config">Configuration object</param>
@@ -101,7 +91,7 @@ namespace QuantConnect.DataSource
             return new EODHDMacroIndicators
             {
                 Symbol = config.Symbol,
-                Time = Parse.DateTimeExact(csv[0], "yyyyMMdd") - Period,
+                Time = Parse.DateTimeExact(csv[0], "yyyyMMdd").AddDays(1),
                 Country = csv[1],
                 Indicator = csv[2],
                 Frequency = frequency,

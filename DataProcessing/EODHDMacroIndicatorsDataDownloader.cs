@@ -25,9 +25,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using QuantConnect.Configuration;
-using QuantConnect.Data.Auxiliary;
-using QuantConnect.Interfaces;
-using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Logging;
 using QuantConnect.Util;
 
@@ -46,7 +43,6 @@ namespace QuantConnect.DataProcessing
         
         private readonly string _destinationFolder;
         private readonly string _apiToken;
-        private readonly IMapFileProvider _mapFileProvider;
         private readonly int _maxRetries = 5;
         
         private readonly JsonSerializerSettings _jsonSerializerSettings = new()
@@ -70,9 +66,6 @@ namespace QuantConnect.DataProcessing
         {
             _destinationFolder = Path.Combine(destinationFolder, VendorName, VendorDataName);
             _apiToken = apiKey ?? Config.Get("vendor-auth-token");
-
-            _mapFileProvider = new LocalZipMapFileProvider();
-            _mapFileProvider.Initialize(new DefaultDataProvider());
 
             // Represents rate limits of 10 requests per 1.1 second
             _indexGate = new RateGate(10, TimeSpan.FromSeconds(1.1));
