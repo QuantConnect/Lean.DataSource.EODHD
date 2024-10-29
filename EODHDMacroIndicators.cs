@@ -16,6 +16,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using NodaTime;
 using QuantConnect.Data;
@@ -23,14 +24,24 @@ using QuantConnect.Data;
 namespace QuantConnect.DataSource
 {
     /// <summary>
-    /// Example custom data type
+    /// EODHDMacroIndicators data type
     /// </summary>
     public class EODHDMacroIndicators : BaseData
     {
         /// <summary>
-        /// Some custom data property
+        /// The macro indicator
         /// </summary>
-        public string SomeCustomProperty { get; set; }
+        public string Indicator { get; set; }
+
+        /// <summary>
+        /// The country of the indicator
+        /// </summary>
+        public string Country { get; set; }
+
+        /// <summary>
+        /// The representation period of the indicator
+        /// </summary>
+        public string Frequency { get; set; }
 
         /// <summary>
         /// Time passed between the date of the data and the time the data became available to us
@@ -51,12 +62,14 @@ namespace QuantConnect.DataSource
         /// <returns>String URL of source file.</returns>
         public override SubscriptionDataSource GetSource(SubscriptionDataConfig config, DateTime date, bool isLiveMode)
         {
+            var country = config.Symbol.Value.Split('/')[0];
             return new SubscriptionDataSource(
                 Path.Combine(
                     Globals.DataFolder,
                     "alternative",
-                    "mycustomdatatype",
-                    $"{config.Symbol.Value.ToLowerInvariant()}.csv"
+                    "eodhd",
+                    "macroindicators",
+                    $"{country.ToLowerInvariant()}.csv"
                 ),
                 SubscriptionTransportMedium.LocalFile
             );
@@ -74,12 +87,21 @@ namespace QuantConnect.DataSource
         {
             var csv = line.Split(',');
 
-            var parsedDate = Parse.DateTimeExact(csv[0], "yyyyMMdd");
+            var ticker = config.Symbol.Value.Split('/');
+            var indicatorType = csv[2];
+            if (ticker.Length > 1 && indicatorType != ticker[1])
+            {
+                return null;
+            }
+
             return new EODHDMacroIndicators
             {
                 Symbol = config.Symbol,
-                SomeCustomProperty = csv[1],
-                Time = parsedDate - Period,
+                Time = Parse.DateTimeExact(csv[0], "yyyyMMdd") - Period,
+                Country = csv[1],
+                Indicator = csv[2],
+                Frequency = csv[3],
+                Value = decimal.Parse(csv[4], NumberStyles.Any, CultureInfo.InvariantCulture)
             };
         }
 
@@ -94,17 +116,20 @@ namespace QuantConnect.DataSource
                 Symbol = Symbol,
                 Time = Time,
                 EndTime = EndTime,
-                SomeCustomProperty = SomeCustomProperty,
+                Country = Country,
+                Indicator = Indicator,
+                Frequency = Frequency,
+                Value = Value
             };
         }
 
         /// <summary>
-        /// Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        /// Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
         /// </summary>
         /// <returns>false</returns>
         public override bool RequiresMapping()
         {
-            return true;
+            return false;
         }
 
         /// <summary>
@@ -122,7 +147,7 @@ namespace QuantConnect.DataSource
         /// </summary>
         public override string ToString()
         {
-            return $"{Symbol} - {SomeCustomProperty}";
+            return $"{EndTime} - {Country} - {Indicator} - {Frequency} - {Value}";
         }
 
         /// <summary>
@@ -139,15 +164,6 @@ namespace QuantConnect.DataSource
         public override List<Resolution> SupportedResolutions()
         {
             return DailyResolution;
-        }
-
-        /// <summary>
-        /// Specifies the data time zone for this data type. This is useful for custom data types
-        /// </summary>
-        /// <returns>The <see cref="T:NodaTime.DateTimeZone" /> of this data type</returns>
-        public override DateTimeZone DataTimeZone()
-        {
-            return DateTimeZone.Utc;
         }
     }
 }
