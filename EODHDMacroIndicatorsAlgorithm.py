@@ -14,16 +14,16 @@
 from AlgorithmImports import *
 
 ### <summary>
-### Example algorithm using the custom data type as a source of alpha
+### Example algorithm using the EODHDMacroIndicators as a source of alpha
 ### </summary>
 class EODHDMacroIndicatorsAlgorithm(QCAlgorithm):
     def Initialize(self):
         ''' Initialise the data and resolution required, as well as the cash and start-end dates for your algorithm. All algorithms must initialized.'''
         
         self.SetStartDate(2020, 10, 7)   #Set Start Date
-        self.SetEndDate(2020, 10, 11)    #Set End Date
+        self.SetEndDate(2022, 10, 11)    #Set End Date
         self.equity_symbol = self.AddEquity("SPY", Resolution.Daily).Symbol
-        self.custom_data_symbol = self.AddData(EODHDMacroIndicators, self.equity_symbol).Symbol
+        self.dataset_symbol = self.AddData(EODHDMacroIndicators, EODHD.MacroIndicators.UnitedStates.GDP_GROWTH_ANNUAL).Symbol
 
     def OnData(self, slice):
         ''' OnData event is the primary entry point for your algorithm. Each new data point will be pumped in here.
@@ -32,16 +32,8 @@ class EODHDMacroIndicatorsAlgorithm(QCAlgorithm):
         '''
         data = slice.Get(EODHDMacroIndicators)
         if data:
-            custom_data = data[self.custom_data_symbol]
-            if custom_data.SomeCustomProperty == "buy":
-                self.SetHoldings(self.equitySymbol, 1)
-            elif custom_data.SomeCustomProperty == "sell":
-                self.SetHoldings(self.equitySymbol, -1)
-
-    def OnOrderEvent(self, orderEvent):
-        ''' Order fill event handler. On an order fill update the resulting information is passed to this method.
-
-        :param OrderEvent orderEvent: Order event details containing details of the events
-        '''
-        if orderEvent.Status == OrderStatus.Filled:
-            self.Debug(f'Purchased Stock: {orderEvent.Symbol}')
+            gdp = data[self.dataset_symbol]
+            if gdp > 0:
+                self.SetHoldings(self.equity_symbol, 1)
+            else:
+                self.SetHoldings(self.equity_symbol, -1)
