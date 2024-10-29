@@ -17,6 +17,5 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\QuantConnect.DataSource.csproj" />
-	  <ProjectReference Include="..\..\Lean\Tests\QuantConnect.Tests.csproj" />
   </ItemGroup>
 </Project>
