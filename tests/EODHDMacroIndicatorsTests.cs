@@ -15,7 +15,6 @@
 */
 
 using System;
-using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using NUnit.Framework;
@@ -70,7 +69,10 @@ namespace QuantConnect.DataLibrary.Tests
                 Symbol = Symbol.Empty,
                 Time = DateTime.Today,
                 DataType = MarketDataType.Base,
-                SomeCustomProperty = "This is some market related information"
+                Country = "USA",
+                Indicator = "gdp_growth_annual",
+                Frequency = EODHD.Frequency.Annual,
+                Value = 0m
             };
         }
     }

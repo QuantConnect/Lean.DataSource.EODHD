@@ -36,18 +36,18 @@ namespace QuantConnect.DataProcessing
             // automatically to the value set on the website when defining this data type
             var destinationDirectory = Path.Combine(
                 Config.Get("temp-output-directory", "/temp-output-directory"),
-                "alternative",
-                "vendorname");
+                "alternative"
+            );
 
-            EODHDMacroIndicatorsUniverseDataDownloader instance = null;
+            EODHDMacroIndicatorsDataDownloader instance = null;
             try
             {
                 // Pass in the values we got from the configuration into the downloader/converter.
-                instance = new EODHDMacroIndicatorsUniverseDataDownloader(destinationDirectory);
+                instance = new EODHDMacroIndicatorsDataDownloader(destinationDirectory);
             }
             catch (Exception err)
             {
-                Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): The downloader/converter for {EODHDMacroIndicatorsUniverseDataDownloader.VendorDataName} {EODHDMacroIndicatorsUniverseDataDownloader.VendorDataName} data failed to be constructed");
+                Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): The downloader/converter for {EODHDMacroIndicatorsDataDownloader.VendorDataName} {EODHDMacroIndicatorsDataDownloader.VendorDataName} data failed to be constructed");
                 Environment.Exit(1);
             }
 
@@ -59,13 +59,13 @@ namespace QuantConnect.DataProcessing
                 var success = instance.Run();
                 if (!success)
                 {
-                    Log.Error($"QuantConnect.DataProcessing.Program.Main(): Failed to download/process {EODHDMacroIndicatorsUniverseDataDownloader.VendorName} {EODHDMacroIndicatorsUniverseDataDownloader.VendorDataName} data");
+                    Log.Error($"QuantConnect.DataProcessing.Program.Main(): Failed to download/process {EODHDMacroIndicatorsDataDownloader.VendorName} {EODHDMacroIndicatorsDataDownloader.VendorDataName} data");
                     Environment.Exit(1);
                 }
             }
             catch (Exception err)
             {
-                Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): The downloader/converter for {EODHDMacroIndicatorsUniverseDataDownloader.VendorDataName} {EODHDMacroIndicatorsUniverseDataDownloader.VendorDataName} data exited unexpectedly");
+                Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): The downloader/converter for {EODHDMacroIndicatorsDataDownloader.VendorDataName} {EODHDMacroIndicatorsDataDownloader.VendorDataName} data exited unexpectedly");
                 Environment.Exit(1);
             }
             finally
