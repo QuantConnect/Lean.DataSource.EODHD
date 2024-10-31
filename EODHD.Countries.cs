@@ -1211,6 +1211,11 @@ namespace QuantConnect.DataSource
             public const string UnitedStates = "USA";
 
             /// <summary>
+            /// European Union
+            /// </summary>
+            public const string EuropeanUnion = "EUR";
+
+            /// <summary>
             /// Uruguay
             /// </summary>
             public const string Uruguay = "URY";
