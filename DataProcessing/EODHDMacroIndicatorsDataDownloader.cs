@@ -38,8 +38,8 @@ namespace QuantConnect.DataProcessing
         public const string VendorName = "eodhd";
         public const string VendorDataName = "macroindicators";
         
-        // 1-year warm up (some annual frequency indicators)
-        private readonly DateTime _epochTime = new DateTime(1997, 1, 1);
+        // 1960-1961 data are not reliable (most are all 0s)
+        private readonly DateTime _epochTime = new DateTime(1962, 1, 1);
         
         private readonly string _destinationFolder;
         private readonly string _apiToken;
@@ -174,7 +174,8 @@ namespace QuantConnect.DataProcessing
 
                                         foreach (var datum in data.Where(x => x.Date >= _epochTime && x.Value != 0m))
                                         {
-                                            csvContents.Add($"{datum.Date:yyyyMMdd},{country},{indicator},{datum.Period},{datum.Value}");
+                                            // Offset a month since the annual data is not deliever immediately at year-end
+                                            csvContents.Add($"{datum.Date.AddMonths(1):yyyyMMdd},{country},{indicator},{datum.Period},{datum.Value}");
                                         }
                                     }
                                 )
