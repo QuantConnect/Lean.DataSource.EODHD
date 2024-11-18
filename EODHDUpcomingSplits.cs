@@ -23,24 +23,29 @@ using QuantConnect.Data;
 namespace QuantConnect.DataSource;
 
 /// <summary>
-/// EODHDMacroIndicators data type
+/// EODHDUpcomingSplits data type.
 /// </summary>
-public class EODHDMacroIndicators : BaseData
+public class EODHDUpcomingSplits : BaseData
 {
     /// <summary>
-    /// The macro indicator
+    /// Date of the split will happen
     /// </summary>
-    public string Indicator { get; set; }
+    public DateTime SplitDate { get; set; }
 
     /// <summary>
-    /// The country of the indicator. See https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3.
+    /// If this is split optionable for shareholders.
     /// </summary>
-    public string Country { get; set; }
+    public bool Optionable { get; set; }
 
     /// <summary>
-    /// The representation period of the indicator
+    /// Ratio of old shares / new shares.
     /// </summary>
-    public EODHD.Frequency Frequency { get; set; }
+    public decimal SplitFactor => Value;
+
+    /// <summary>
+    /// Time the data became available
+    /// </summary>
+    public override DateTime EndTime => Time.AddDays(1);
 
     /// <summary>
     /// Return the URL string source of the file. This will be converted to a stream
@@ -51,14 +56,13 @@ public class EODHDMacroIndicators : BaseData
     /// <returns>String URL of source file.</returns>
     public override SubscriptionDataSource GetSource(SubscriptionDataConfig config, DateTime date, bool isLiveMode)
     {
-        var country = config.Symbol.Value.Split('/')[0];
         return new SubscriptionDataSource(
             Path.Combine(
                 Globals.DataFolder,
                 "alternative",
                 "eodhd",
-                "macroindicators",
-                $"{country.ToLowerInvariant()}.csv"
+                "upcomingsplits",
+                $"{date:yyyyMMdd}.csv"
             ),
             SubscriptionTransportMedium.LocalFile
         );
@@ -76,28 +80,13 @@ public class EODHDMacroIndicators : BaseData
     {
         var csv = line.Split(',');
 
-        var ticker = config.Symbol.Value.Split('/');
-        var indicatorType = csv[1];
-        if (ticker.Length > 1 && indicatorType != ticker[1])
+        return new EODHDUpcomingSplits
         {
-            return null;
-        }
-
-        var country = ticker[0].ToUpperInvariant();
-
-        if (!Enum.TryParse<EODHD.Frequency>(csv[3], true, out var frequency))
-        {
-            frequency = EODHD.Frequency.Unknown;
-        }
-
-        return new EODHDMacroIndicators
-        {
-            Symbol = config.Symbol,
-            Time = Parse.DateTimeExact(csv[0], "yyyyMMdd").AddDays(1),
-            Country = country,
-            Indicator = $"{country}/{indicatorType}",
-            Frequency = frequency,
-            Value = decimal.Parse(csv[4], NumberStyles.Any, CultureInfo.InvariantCulture)
+            Symbol = new Symbol(SecurityIdentifier.Parse(csv[0]), csv[1]),
+            SplitDate = Parse.DateTimeExact(csv[2], "yyyyMMdd"),
+            Optionable = csv[3] != "N",
+            Value = decimal.Parse(csv[4], NumberStyles.Any, CultureInfo.InvariantCulture),
+            Time = date,
         };
     }
 
@@ -107,19 +96,18 @@ public class EODHDMacroIndicators : BaseData
     /// <returns>A clone of the object</returns>
     public override BaseData Clone()
     {
-        return new EODHDMacroIndicators
+        return new EODHDUpcomingSplits
         {
             Symbol = Symbol,
             Time = Time,
-            Country = Country,
-            Indicator = Indicator,
-            Frequency = Frequency,
-            Value = Value
+            SplitDate = SplitDate,
+            Optionable = Optionable,
+            Value = Value,
         };
     }
 
     /// <summary>
-    /// Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
+    /// Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
     /// </summary>
     /// <returns>false</returns>
     public override bool RequiresMapping()
@@ -142,7 +130,7 @@ public class EODHDMacroIndicators : BaseData
     /// </summary>
     public override string ToString()
     {
-        return $"{EndTime} - {Indicator} - {Frequency} - {Value}";
+        return $"{Symbol} - {SplitDate} - {Optionable} - {SplitFactor}";
     }
 
     /// <summary>

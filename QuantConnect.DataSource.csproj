@@ -2,9 +2,9 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <RootNamespace>QuantConnect.DataSource</RootNamespace>
-    <AssemblyName>QuantConnect.DataSource.EODHDMacroIndicators</AssemblyName>
+    <AssemblyName>QuantConnect.DataSource.EODHD</AssemblyName>
     <OutputPath>bin\$(Configuration)</OutputPath>
-    <DocumentationFile>$(OutputPath)\QuantConnect.DataSource.EODHDMacroIndicators.xml</DocumentationFile>
+    <DocumentationFile>$(OutputPath)\QuantConnect.DataSource.EODHD.xml</DocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,7 +20,14 @@
     <Compile Remove="DataProcessing\**" />
     <EmbeddedResource Remove="DataProcessing\**" />
     <None Remove="DataProcessing\**" />
+    <Compile Remove="EODHDEconomicEventsAlgorithm.cs" />
     <Compile Remove="EODHDMacroIndicatorsAlgorithm.cs" />
+    <Compile Remove="EODHDUpcomingEarningsExampleAlgorithm.cs" />
+    <Compile Remove="EODHDUpcomingEarningsUniverseExampleAlgorithm.cs" />
+    <Compile Remove="EODHDUpcomingIPOsAlgorithm.cs" />
+    <Compile Remove="EODHDUpcomingIPOsUniverseSelectionAlgorithm.cs" />
+    <Compile Remove="EODHDUpcomingSplitsAlgorithm.cs" />
+    <Compile Remove="EODHDUpcomingSplitsUniverseExampleAlgorithm.cs" />
     <None Remove=".gitignore" />
   </ItemGroup>
 </Project>

@@ -24,7 +24,7 @@ using QuantConnect.DataSource;
 namespace QuantConnect.DataLibrary.Tests;
 
 [TestFixture]
-public class EODHDMacroIndicatorsTests
+public class EODHDEconomicEventsTests
 {
     [Test]
     public void JsonRoundTrip()
@@ -64,15 +64,17 @@ public class EODHDMacroIndicatorsTests
 
     private static BaseData CreateNewInstance()
     {
-        return new EODHDMacroIndicators
+        return new EODHDEconomicEvents
         {
             Symbol = Symbol.Empty,
             Time = DateTime.Today,
             DataType = MarketDataType.Base,
-            Country = "USA",
-            Indicator = "gdp_growth_annual",
-            Frequency = EODHD.Frequency.Annual,
-            Value = 0m
+            EventType = "Sample Event",
+            EventPeriod = string.Empty,
+            Country = "US",
+            EventTime = DateTime.MinValue,
+            Previous = null,
+            Estimate = 0.1m
         };
     }
 }

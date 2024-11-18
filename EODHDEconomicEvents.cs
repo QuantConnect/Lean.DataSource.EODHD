@@ -18,29 +18,50 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using NodaTime;
 using QuantConnect.Data;
 
 namespace QuantConnect.DataSource;
 
 /// <summary>
-/// EODHDMacroIndicators data type
+/// EODHDEconomicEvents data type
 /// </summary>
-public class EODHDMacroIndicators : BaseData
+public class EODHDEconomicEvents : BaseData
 {
     /// <summary>
-    /// The macro indicator
+    /// The economic event
     /// </summary>
-    public string Indicator { get; set; }
+    public string EventType { get; set; }
 
     /// <summary>
-    /// The country of the indicator. See https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3.
+    /// The representation period of the event announcement
+    /// </summary>
+    public string EventPeriod { get; set; }
+
+    /// <summary>
+    /// The country of the event. See https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3.
     /// </summary>
     public string Country { get; set; }
 
     /// <summary>
-    /// The representation period of the indicator
+    /// The event announcement or start time
     /// </summary>
-    public EODHD.Frequency Frequency { get; set; }
+    public DateTime EventTime { get; set; }
+
+    /// <summary>
+    /// The previous figure of the announcement if any
+    /// </summary>
+    public decimal? Previous { get; set; }
+
+    /// <summary>
+    /// The estimated figure of the announcement if any
+    /// </summary>
+    public decimal? Estimate { get; set; }
+
+    /// <summary>
+    /// Time the data became available
+    /// </summary>
+    public override DateTime EndTime => Time.AddDays(1);
 
     /// <summary>
     /// Return the URL string source of the file. This will be converted to a stream
@@ -57,8 +78,9 @@ public class EODHDMacroIndicators : BaseData
                 Globals.DataFolder,
                 "alternative",
                 "eodhd",
-                "macroindicators",
-                $"{country.ToLowerInvariant()}.csv"
+                "economicevents",
+                $"{country.ToLowerInvariant()}",
+                $"{date:yyyyMMdd}.csv"
             ),
             SubscriptionTransportMedium.LocalFile
         );
@@ -77,27 +99,23 @@ public class EODHDMacroIndicators : BaseData
         var csv = line.Split(',');
 
         var ticker = config.Symbol.Value.Split('/');
-        var indicatorType = csv[1];
-        if (ticker.Length > 1 && indicatorType != ticker[1])
+        var eventType = csv[2];
+        if (ticker.Length > 1 && eventType != ticker[1])
         {
             return null;
         }
-
         var country = ticker[0].ToUpperInvariant();
 
-        if (!Enum.TryParse<EODHD.Frequency>(csv[3], true, out var frequency))
-        {
-            frequency = EODHD.Frequency.Unknown;
-        }
-
-        return new EODHDMacroIndicators
+        return new EODHDEconomicEvents
         {
             Symbol = config.Symbol,
-            Time = Parse.DateTimeExact(csv[0], "yyyyMMdd").AddDays(1),
             Country = country,
-            Indicator = $"{country}/{indicatorType}",
-            Frequency = frequency,
-            Value = decimal.Parse(csv[4], NumberStyles.Any, CultureInfo.InvariantCulture)
+            EventTime = Parse.DateTimeExact(csv[0], "yyyyMMdd HH:mm:ss"),
+            EventPeriod = csv[1],
+            EventType = $"{country}/{eventType}",
+            Previous = csv[3].IfNotNullOrEmpty<decimal?>(s => decimal.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)),
+            Estimate = csv[4].IfNotNullOrEmpty<decimal?>(s => decimal.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)),
+            Time = date,
         };
     }
 
@@ -107,19 +125,21 @@ public class EODHDMacroIndicators : BaseData
     /// <returns>A clone of the object</returns>
     public override BaseData Clone()
     {
-        return new EODHDMacroIndicators
+        return new EODHDEconomicEvents
         {
             Symbol = Symbol,
             Time = Time,
+            EventType = EventType,
+            EventPeriod = EventPeriod,
             Country = Country,
-            Indicator = Indicator,
-            Frequency = Frequency,
-            Value = Value
+            EventTime = EventTime,
+            Previous = Previous,
+            Estimate = Previous
         };
     }
 
     /// <summary>
-    /// Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
+    /// Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
     /// </summary>
     /// <returns>false</returns>
     public override bool RequiresMapping()
@@ -142,7 +162,7 @@ public class EODHDMacroIndicators : BaseData
     /// </summary>
     public override string ToString()
     {
-        return $"{EndTime} - {Indicator} - {Frequency} - {Value}";
+        return $"{EventTime} - {EventPeriod} - {EventType} - {Previous} - {Estimate}";
     }
 
     /// <summary>
@@ -159,5 +179,14 @@ public class EODHDMacroIndicators : BaseData
     public override List<Resolution> SupportedResolutions()
     {
         return DailyResolution;
+    }
+
+    /// <summary>
+    /// Specifies the data time zone for this data type. This is useful for custom data types
+    /// </summary>
+    /// <returns>The <see cref="T:NodaTime.DateTimeZone" /> of this data type</returns>
+    public override DateTimeZone DataTimeZone()
+    {
+        return DateTimeZone.Utc;
     }
 }

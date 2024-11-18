@@ -13,69 +13,82 @@
  * limitations under the License.
 */
 
-using System;
-using System.IO;
 using QuantConnect.Configuration;
 using QuantConnect.Logging;
 using QuantConnect.Util;
+using System;
+using System.Collections.Generic;
+using System.IO;
 
-namespace QuantConnect.DataProcessing
+namespace QuantConnect.DataProcessing;
+
+/// <summary>
+/// Entrypoint for the data downloader/converter
+/// </summary>
+public class Program
 {
     /// <summary>
-    /// Entrypoint for the data downloader/converter
+    /// Entrypoint of the program
     /// </summary>
-    public class Program
+    /// <returns>Exit code. 0 equals successful, and any other value indicates the downloader/converter failed.</returns>
+    public static void Main()
     {
-        /// <summary>
-        /// Entrypoint of the program
-        /// </summary>
-        /// <returns>Exit code. 0 equals successful, and any other value indicates the downloader/converter failed.</returns>
-        public static void Main()
+        var apiKey = Config.Get("vendor-auth-token");
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
-            // Get the config values first before running. These values are set for us
-            // automatically to the value set on the website when defining this data type
-            var destinationDirectory = Path.Combine(
-                Config.Get("temp-output-directory", "/temp-output-directory"),
-                "alternative"
-            );
+            Log.Error($"QuantConnect.DataProcessing.Program.Main(): \"vendor-auth-token\" is null or empty.");
+            Environment.Exit(1);
+        }
 
-            EODHDMacroIndicatorsDataDownloader instance = null;
+        // Get the config values first before running. These values are set for us
+        // automatically to the value set on the website when defining this data type
+        var destinationDirectory = Path.Combine(Config.Get("temp-output-directory", "/temp-output-directory"), "alternative");
+        var deploymentDateValue = Environment.GetEnvironmentVariable("QC_DATAFLEET_DEPLOYMENT_DATE");
+        var deploymentDate = string.IsNullOrWhiteSpace(deploymentDateValue) ? DateTime.UtcNow.Date : Parse.DateTimeExact(deploymentDateValue, "yyyyMMdd");
+        var processDate = Parse.DateTimeExact(Config.Get("process-start-date", $"{deploymentDate:yyyyMMdd}"), "yyyyMMdd");
+        var downloaders = new List<EODHDBaseDataDownloader>();
+
+        try
+        {
+            // Pass in the values we got from the configuration into the downloader/converter.
+            downloaders.Add(new EODHDUpcomingEarningsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+            downloaders.Add(new EODHDUpcomingIPOsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+            downloaders.Add(new EODHDUpcomingSplitsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+            downloaders.Add(new EODHDEconomicEventsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+
+            // Avoid long-running downloader/converter
+            if (Config.GetBool("process-macro-indicators"))
+                downloaders.Add(new EODHDMacroIndicatorsDataDownloader(destinationDirectory, apiKey));            
+        }
+        catch (Exception err)
+        {
+            Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): Failed to construct downloader/converter");
+            Environment.Exit(1);
+        }
+
+        // No need to edit anything below here for most use cases.
+        // The downloader/converter is ran and cleaned up for you safely here.
+        var success = true;
+        foreach (var downloader in downloaders)
+        {
             try
             {
-                // Pass in the values we got from the configuration into the downloader/converter.
-                instance = new EODHDMacroIndicatorsDataDownloader(destinationDirectory);
-            }
-            catch (Exception err)
-            {
-                Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): The downloader/converter for {EODHDMacroIndicatorsDataDownloader.VendorDataName} {EODHDMacroIndicatorsDataDownloader.VendorDataName} data failed to be constructed");
-                Environment.Exit(1);
-            }
-
-            // No need to edit anything below here for most use cases.
-            // The downloader/converter is ran and cleaned up for you safely here.
-            try
-            {
-                // Run the data downloader/converter.
-                var success = instance.Run();
-                if (!success)
+                if (!downloader.Run(processDate).Result)
                 {
-                    Log.Error($"QuantConnect.DataProcessing.Program.Main(): Failed to download/process {EODHDMacroIndicatorsDataDownloader.VendorName} {EODHDMacroIndicatorsDataDownloader.VendorDataName} data");
-                    Environment.Exit(1);
+                    Log.Error($"QuantConnect.DataProcessing.Program.Main(): Failed to download/process {downloader.VendorName} {downloader.VendorDataName} data");
+                    success = false;
                 }
             }
             catch (Exception err)
             {
-                Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): The downloader/converter for {EODHDMacroIndicatorsDataDownloader.VendorDataName} {EODHDMacroIndicatorsDataDownloader.VendorDataName} data exited unexpectedly");
-                Environment.Exit(1);
+                Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): The downloader/converter for {downloader.VendorDataName} {downloader.VendorDataName} data exited unexpectedly");
+                success = false;
             }
-            finally
-            {
-                // Run cleanup of the downloader/converter once it has finished or crashed.
-                instance.DisposeSafely();
-            }
-            
-            // The downloader/converter was successful
-            Environment.Exit(0);
+            // Run cleanup of the downloader/converter once it has finished or crashed.
+            downloader.DisposeSafely();
         }
+
+        // The downloader/converter was successful
+        Environment.Exit(success ? 0 : 1);
     }
 }

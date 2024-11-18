@@ -24,7 +24,7 @@ using QuantConnect.DataSource;
 namespace QuantConnect.DataLibrary.Tests;
 
 [TestFixture]
-public class EODHDMacroIndicatorsTests
+public class EODHDUpcomingIPOsTests
 {
     [Test]
     public void JsonRoundTrip()
@@ -64,15 +64,21 @@ public class EODHDMacroIndicatorsTests
 
     private static BaseData CreateNewInstance()
     {
-        return new EODHDMacroIndicators
+        return new EODHDUpcomingIPOs
         {
             Symbol = Symbol.Empty,
             Time = DateTime.Today,
             DataType = MarketDataType.Base,
-            Country = "USA",
-            Indicator = "gdp_growth_annual",
-            Frequency = EODHD.Frequency.Annual,
-            Value = 0m
+            Name = string.Empty,
+            Exchange = Exchange.NYSE,
+            IpoDate = new DateTime(2024, 1, 1),
+            FilingDate = new DateTime(2024, 1, 1),
+            AmendedDate = new DateTime(2024, 1, 1),
+            LowestPrice = null,
+            HighestPrice = null,
+            OfferPrice = 10m,
+            Shares = 1000000m,
+            DealType = EODHD.DealType.Priced,
         };
     }
 }

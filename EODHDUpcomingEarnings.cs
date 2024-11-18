@@ -23,24 +23,29 @@ using QuantConnect.Data;
 namespace QuantConnect.DataSource;
 
 /// <summary>
-/// EODHDMacroIndicators data type
+/// EODHD Upcoming Earnings object
 /// </summary>
-public class EODHDMacroIndicators : BaseData
+public class EODHDUpcomingEarnings : BaseData
 {
     /// <summary>
-    /// The macro indicator
+    /// The predetermined earnings report date.
     /// </summary>
-    public string Indicator { get; set; }
+    public DateTime ReportDate { get; set; }
 
     /// <summary>
-    /// The country of the indicator. See https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3.
+    /// Whether the earnings report will be published before market open or after market closed on the report date.
     /// </summary>
-    public string Country { get; set; }
+    public EODHD.ReportTime? ReportTime { get; set; }
 
     /// <summary>
-    /// The representation period of the indicator
+    /// The estimated earnings per share.
     /// </summary>
-    public EODHD.Frequency Frequency { get; set; }
+    public decimal? Estimate { get; set; }
+
+    /// <summary>
+    /// Time the data became available
+    /// </summary>
+    public override DateTime EndTime => Time.AddDays(1);
 
     /// <summary>
     /// Return the URL string source of the file. This will be converted to a stream
@@ -51,14 +56,13 @@ public class EODHDMacroIndicators : BaseData
     /// <returns>String URL of source file.</returns>
     public override SubscriptionDataSource GetSource(SubscriptionDataConfig config, DateTime date, bool isLiveMode)
     {
-        var country = config.Symbol.Value.Split('/')[0];
         return new SubscriptionDataSource(
             Path.Combine(
                 Globals.DataFolder,
                 "alternative",
                 "eodhd",
-                "macroindicators",
-                $"{country.ToLowerInvariant()}.csv"
+                "upcomingearnings",
+                $"{date:yyyyMMdd}.csv"
             ),
             SubscriptionTransportMedium.LocalFile
         );
@@ -76,28 +80,15 @@ public class EODHDMacroIndicators : BaseData
     {
         var csv = line.Split(',');
 
-        var ticker = config.Symbol.Value.Split('/');
-        var indicatorType = csv[1];
-        if (ticker.Length > 1 && indicatorType != ticker[1])
+        var parsedDate = Parse.DateTimeExact(csv[2], "yyyyMMdd");
+        var hasTime = Enum.TryParse(csv[3], out EODHD.ReportTime reportTime);
+        return new EODHDUpcomingEarnings
         {
-            return null;
-        }
-
-        var country = ticker[0].ToUpperInvariant();
-
-        if (!Enum.TryParse<EODHD.Frequency>(csv[3], true, out var frequency))
-        {
-            frequency = EODHD.Frequency.Unknown;
-        }
-
-        return new EODHDMacroIndicators
-        {
-            Symbol = config.Symbol,
-            Time = Parse.DateTimeExact(csv[0], "yyyyMMdd").AddDays(1),
-            Country = country,
-            Indicator = $"{country}/{indicatorType}",
-            Frequency = frequency,
-            Value = decimal.Parse(csv[4], NumberStyles.Any, CultureInfo.InvariantCulture)
+            Symbol = new Symbol(SecurityIdentifier.Parse(csv[0]), csv[1]),
+            ReportDate = parsedDate,
+            ReportTime = hasTime ? reportTime : null,
+            Estimate = csv[4].IfNotNullOrEmpty<decimal?>(s => decimal.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)),
+            Time = date,
         };
     }
 
@@ -107,19 +98,18 @@ public class EODHDMacroIndicators : BaseData
     /// <returns>A clone of the object</returns>
     public override BaseData Clone()
     {
-        return new EODHDMacroIndicators
+        return new EODHDUpcomingEarnings
         {
             Symbol = Symbol,
             Time = Time,
-            Country = Country,
-            Indicator = Indicator,
-            Frequency = Frequency,
-            Value = Value
+            ReportDate = ReportDate,
+            ReportTime = ReportTime,
+            Estimate = Estimate
         };
     }
 
     /// <summary>
-    /// Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
+    /// Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
     /// </summary>
     /// <returns>false</returns>
     public override bool RequiresMapping()
@@ -142,7 +132,7 @@ public class EODHDMacroIndicators : BaseData
     /// </summary>
     public override string ToString()
     {
-        return $"{EndTime} - {Indicator} - {Frequency} - {Value}";
+        return $"{EndTime} - {Symbol} - {ReportDate:yyyyMMdd} - {ReportTime} - {Estimate}";
     }
 
     /// <summary>
