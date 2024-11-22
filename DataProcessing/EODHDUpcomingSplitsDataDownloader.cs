@@ -123,7 +123,7 @@ public class EODHDUpcomingSplitsDataDownloader : EODHDBaseDataDownloader
                 continue;
             }
 
-            Log.Trace($"EODHDUpcomingSplitsDataDownloader.Run(): Finished in {stopwatch.Elapsed.ToStringInvariant(null)}");
+            Log.Trace($"EODHDUpcomingSplitsDataDownloader.Run(): Finished in {stopwatch.Elapsed.TotalSeconds:f3} seconds");
             processDate = processDate.AddDays(1);
         }
         return success;

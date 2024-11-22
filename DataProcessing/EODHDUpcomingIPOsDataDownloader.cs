@@ -122,7 +122,7 @@ public class EODHDUpcomingIPOsDataDownloader : EODHDBaseDataDownloader
                 continue;
             }
 
-            Log.Trace($"EODHDUpcomingIPOsDataDownloader.Run(): Finished in {stopwatch.Elapsed.ToStringInvariant(null)}");
+            Log.Trace($"EODHDUpcomingIPOsDataDownloader.Run(): Finished in {stopwatch.Elapsed.TotalSeconds:f3} seconds");
             processDate = processDate.AddDays(1);
         }
         return success;

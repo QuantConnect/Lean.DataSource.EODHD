@@ -14,47 +14,32 @@
  *
 */
 
-using NodaTime;
 using QuantConnect.Data;
-using QuantConnect.Data.UniverseSelection;
-using QuantConnect.Util;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+using System.Globalization;
 
 namespace QuantConnect.DataSource;
 
 /// <summary>
-/// EODHDEconomicEvents data type
+/// EODHDMacroIndicator data type
 /// </summary>
-public class EODHDEconomicEvents : BaseDataCollection
+public class EODHDMacroIndicator : BaseData
 {
-    private static readonly EODHDEconomicEvent _factory = new();
+    /// <summary>
+    /// The macro indicator
+    /// </summary>
+    public string Indicator { get; set; }
 
     /// <summary>
-    /// Return the URL string source of the file. This will be converted to a stream
+    /// The country of the indicator. See https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3.
     /// </summary>
-    /// <param name="config">Configuration object</param>
-    /// <param name="date">Date of this source file</param>
-    /// <param name="isLiveMode">true if we're in live mode, false for backtesting mode</param>
-    /// <returns>String URL of source file.</returns>
-    public override SubscriptionDataSource GetSource(SubscriptionDataConfig config, DateTime date, bool isLiveMode)
-    {
-        var country = config.Symbol.Value.Split('/')[0];
-        return new SubscriptionDataSource(
-            Path.Combine(
-                Globals.DataFolder,
-                "alternative",
-                "eodhd",
-                "economicevents",
-                $"{country.ToLowerInvariant()}",
-                $"{date:yyyyMMdd}.csv"
-            ),
-            SubscriptionTransportMedium.LocalFile,
-            FileFormat.FoldingCollection
-        );
-    }
+    public string Country { get; set; }
+
+    /// <summary>
+    /// The representation period of the indicator
+    /// </summary>
+    public EODHD.Frequency Frequency { get; set; }
 
     /// <summary>
     /// Parses the data from the line provided and loads it into LEAN
@@ -66,7 +51,29 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// <returns>New instance</returns>
     public override BaseData Reader(SubscriptionDataConfig config, string line, DateTime date, bool isLiveMode)
     {
-        return _factory.Reader(config, line, date, isLiveMode);
+        var csv = line.Split(',');
+
+        var ticker = config.Symbol.Value.Split('/');
+        var indicatorType = csv[1];
+        if (ticker.Length > 1 && indicatorType != ticker[1].ToLowerInvariant())
+        {
+            return null;
+        }
+
+        if (!Enum.TryParse<EODHD.Frequency>(csv[2], true, out var frequency))
+        {
+            frequency = EODHD.Frequency.Unknown;
+        }
+
+        return new EODHDMacroIndicator
+        {
+            Symbol = config.Symbol,
+            Time = Parse.DateTimeExact(csv[0], "yyyyMMdd").AddDays(1),
+            Country = ticker[0],
+            Indicator = indicatorType,
+            Frequency = frequency,
+            Value = decimal.Parse(csv[3], NumberStyles.Any, CultureInfo.InvariantCulture)
+        };
     }
 
     /// <summary>
@@ -75,12 +82,14 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// <returns>A clone of the object</returns>
     public override BaseData Clone()
     {
-        return new EODHDEconomicEvents
+        return new EODHDMacroIndicator
         {
             Symbol = Symbol,
             Time = Time,
-            EndTime = EndTime,
-            Data = Data?.ToList(point => point.Clone())
+            Country = Country,
+            Indicator = Indicator,
+            Frequency = Frequency,
+            Value = Value
         };
     }
 
@@ -90,7 +99,7 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// <returns>false</returns>
     public override bool RequiresMapping()
     {
-        return _factory.RequiresMapping();
+        return false;
     }
 
     /// <summary>
@@ -100,7 +109,7 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// <returns>true</returns>
     public override bool IsSparseData()
     {
-        return _factory.IsSparseData();
+        return true;
     }
 
     /// <summary>
@@ -108,7 +117,7 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// </summary>
     public override string ToString()
     {
-        return $"[{string.Join(",", Data.Select(data => data.ToString()))}]";
+        return $"{EndTime} - {Indicator} - {Frequency} - {Value}";
     }
 
     /// <summary>
@@ -116,7 +125,7 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// </summary>
     public override Resolution DefaultResolution()
     {
-        return _factory.DefaultResolution();
+        return Resolution.Daily;
     }
 
     /// <summary>
@@ -124,15 +133,6 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// </summary>
     public override List<Resolution> SupportedResolutions()
     {
-        return _factory.SupportedResolutions();
-    }
-
-    /// <summary>
-    /// Specifies the data time zone for this data type. This is useful for custom data types
-    /// </summary>
-    /// <returns>The <see cref="T:NodaTime.DateTimeZone" /> of this data type</returns>
-    public override DateTimeZone DataTimeZone()
-    {
-        return _factory.DataTimeZone();
+        return DailyResolution;
     }
 }

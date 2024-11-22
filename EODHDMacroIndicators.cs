@@ -14,33 +14,22 @@
  *
 */
 
+using QuantConnect.Data;
+using QuantConnect.Data.UniverseSelection;
+using QuantConnect.Util;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
-using QuantConnect.Data;
+using System.Linq;
 
 namespace QuantConnect.DataSource;
 
 /// <summary>
 /// EODHDMacroIndicators data type
 /// </summary>
-public class EODHDMacroIndicators : BaseData
+public class EODHDMacroIndicators : BaseDataCollection
 {
-    /// <summary>
-    /// The macro indicator
-    /// </summary>
-    public string Indicator { get; set; }
-
-    /// <summary>
-    /// The country of the indicator. See https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3.
-    /// </summary>
-    public string Country { get; set; }
-
-    /// <summary>
-    /// The representation period of the indicator
-    /// </summary>
-    public EODHD.Frequency Frequency { get; set; }
+    private static readonly EODHDMacroIndicator _factory = new();
 
     /// <summary>
     /// Return the URL string source of the file. This will be converted to a stream
@@ -60,7 +49,8 @@ public class EODHDMacroIndicators : BaseData
                 "macroindicators",
                 $"{country.ToLowerInvariant()}.csv"
             ),
-            SubscriptionTransportMedium.LocalFile
+            SubscriptionTransportMedium.LocalFile,
+            FileFormat.FoldingCollection
         );
     }
 
@@ -74,31 +64,7 @@ public class EODHDMacroIndicators : BaseData
     /// <returns>New instance</returns>
     public override BaseData Reader(SubscriptionDataConfig config, string line, DateTime date, bool isLiveMode)
     {
-        var csv = line.Split(',');
-
-        var ticker = config.Symbol.Value.Split('/');
-        var indicatorType = csv[1];
-        if (ticker.Length > 1 && indicatorType != ticker[1])
-        {
-            return null;
-        }
-
-        var country = ticker[0].ToUpperInvariant();
-
-        if (!Enum.TryParse<EODHD.Frequency>(csv[3], true, out var frequency))
-        {
-            frequency = EODHD.Frequency.Unknown;
-        }
-
-        return new EODHDMacroIndicators
-        {
-            Symbol = config.Symbol,
-            Time = Parse.DateTimeExact(csv[0], "yyyyMMdd").AddDays(1),
-            Country = country,
-            Indicator = $"{country}/{indicatorType}",
-            Frequency = frequency,
-            Value = decimal.Parse(csv[4], NumberStyles.Any, CultureInfo.InvariantCulture)
-        };
+        return _factory.Reader(config, line, date, isLiveMode);
     }
 
     /// <summary>
@@ -111,10 +77,8 @@ public class EODHDMacroIndicators : BaseData
         {
             Symbol = Symbol,
             Time = Time,
-            Country = Country,
-            Indicator = Indicator,
-            Frequency = Frequency,
-            Value = Value
+            EndTime = EndTime,
+            Data = Data?.ToList(point => point.Clone())
         };
     }
 
@@ -124,7 +88,7 @@ public class EODHDMacroIndicators : BaseData
     /// <returns>false</returns>
     public override bool RequiresMapping()
     {
-        return false;
+        return _factory.RequiresMapping();
     }
 
     /// <summary>
@@ -134,7 +98,7 @@ public class EODHDMacroIndicators : BaseData
     /// <returns>true</returns>
     public override bool IsSparseData()
     {
-        return true;
+        return _factory.IsSparseData();
     }
 
     /// <summary>
@@ -142,7 +106,7 @@ public class EODHDMacroIndicators : BaseData
     /// </summary>
     public override string ToString()
     {
-        return $"{EndTime} - {Indicator} - {Frequency} - {Value}";
+        return $"[{string.Join(",", Data.Select(data => data.ToString()))}]";
     }
 
     /// <summary>
@@ -150,7 +114,7 @@ public class EODHDMacroIndicators : BaseData
     /// </summary>
     public override Resolution DefaultResolution()
     {
-        return Resolution.Daily;
+        return _factory.DefaultResolution();
     }
 
     /// <summary>
@@ -158,6 +122,6 @@ public class EODHDMacroIndicators : BaseData
     /// </summary>
     public override List<Resolution> SupportedResolutions()
     {
-        return DailyResolution;
+        return _factory.SupportedResolutions();
     }
 }

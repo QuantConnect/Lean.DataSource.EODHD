@@ -17,6 +17,7 @@
 using System;
 using System.Linq;
 using Newtonsoft.Json;
+using NodaTime;
 using NUnit.Framework;
 using QuantConnect.Data;
 using QuantConnect.DataSource;
@@ -46,6 +47,27 @@ public class EODHDEconomicEventsTests
         AssertAreEqual(expected, result);
     }
 
+    [TestCase("20241121 16:00:00,Nov,kansas_fed_manufacturing_index,,3")]
+    [TestCase("20241121 16:00:00,Nov,kansas_fed_composite_index,-4,-2")]
+    public void ReaderCountryTest(string line)
+    {
+        var config = new SubscriptionDataConfig(typeof(EODHDEconomicEvents),
+            symbol: Symbol.CreateBase(typeof(EODHDEconomicEvents), Country.UnitedStates),
+            Resolution.Daily, DateTimeZone.Utc, DateTimeZone.Utc, false, false, false);
+        Assert.IsNotNull(CreateNewInstance().Reader(config, line, DateTime.UtcNow, false));
+    }
+
+    [TestCase("20241121 16:00:00,Nov,kansas_fed_manufacturing_index,,3", false)]
+    [TestCase("20241121 16:00:00,Nov,kansas_fed_composite_index,-4,-2", true)]
+    public void ReaderEventTest(string line, bool isNull)
+    {
+        var config = new SubscriptionDataConfig(typeof(EODHDEconomicEvents), 
+            symbol: Symbol.CreateBase(typeof(EODHDEconomicEvents), EODHD.Events.UnitedStates.KansasFedManufacturingIndex),
+            Resolution.Daily, DateTimeZone.Utc, DateTimeZone.Utc, false, false, false);
+        var data = CreateNewInstance().Reader(config, line, DateTime.UtcNow, false);
+        if (isNull) { Assert.IsNull(data); } else { Assert.IsNotNull(data); }
+    }
+
     private static void AssertAreEqual(object expected, object result, bool filterByCustomAttributes = false)
     {
         foreach (var propertyInfo in expected.GetType().GetProperties())
@@ -64,7 +86,7 @@ public class EODHDEconomicEventsTests
 
     private static BaseData CreateNewInstance()
     {
-        return new EODHDEconomicEvents
+        return new EODHDEconomicEvent
         {
             Symbol = Symbol.Empty,
             Time = DateTime.Today,

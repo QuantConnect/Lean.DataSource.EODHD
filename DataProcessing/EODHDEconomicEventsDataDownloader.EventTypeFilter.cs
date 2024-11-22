@@ -201,7 +201,7 @@ partial class EODHDEconomicEventsDataDownloader : EODHDBaseDataDownloader
                 filteredName = SingleWordFilter(filteredName, kvp.Key, kvp.Value);
             }
 
-            return filteredName.Trim();
+            return filteredName.Trim().Replace(" ", "_");
         }
 
         /// <summary>

@@ -17,6 +17,7 @@
 using System;
 using System.Linq;
 using Newtonsoft.Json;
+using NodaTime;
 using NUnit.Framework;
 using QuantConnect.Data;
 using QuantConnect.DataSource;
@@ -46,6 +47,28 @@ public class EODHDMacroIndicatorsTests
         AssertAreEqual(expected, result);
     }
 
+    [TestCase("20240131,merchandise_trade_percent_gdp,Annual,18.9762")]
+    [TestCase("20240131,unemployment_total_percent,Annual,3.638")]
+    public void ReaderCountryTest(string line)
+    {
+        var config = new SubscriptionDataConfig(typeof(EODHDMacroIndicators),
+            symbol: Symbol.CreateBase(typeof(EODHDMacroIndicators), Country.UnitedStates),
+            Resolution.Daily, DateTimeZone.Utc, DateTimeZone.Utc, false, false, false);
+        Assert.IsNotNull(CreateNewInstance().Reader(config, line, DateTime.UtcNow, false));
+    }
+
+    [TestCase("20240131,merchandise_trade_percent_gdp,Annual,18.9762", true)]
+    [TestCase("20240131,unemployment_total_percent,Annual,3.638", false)]
+    public void ReaderEventTest(string line, bool isNull)
+    {
+        var config = new SubscriptionDataConfig(typeof(EODHDMacroIndicators),
+            symbol: Symbol.CreateBase(typeof(EODHDMacroIndicators), EODHD.MacroIndicators.UnitedStates.UnemploymentTotalPercent),
+            Resolution.Daily, DateTimeZone.Utc, DateTimeZone.Utc, false, false, false);
+        var data = CreateNewInstance().Reader(config, line, DateTime.UtcNow, false);
+        if (isNull) { Assert.IsNull(data); } else { Assert.IsNotNull(data); }
+    }
+
+
     private static void AssertAreEqual(object expected, object result, bool filterByCustomAttributes = false)
     {
         foreach (var propertyInfo in expected.GetType().GetProperties())
@@ -64,7 +87,7 @@ public class EODHDMacroIndicatorsTests
 
     private static BaseData CreateNewInstance()
     {
-        return new EODHDMacroIndicators
+        return new EODHDMacroIndicator
         {
             Symbol = Symbol.Empty,
             Time = DateTime.Today,

@@ -17,6 +17,7 @@
 using QuantConnect.Data;
 using QuantConnect.Algorithm;
 using QuantConnect.DataSource;
+using System.Linq;
 
 namespace QuantConnect.DataLibrary.Tests
 {
@@ -45,8 +46,9 @@ namespace QuantConnect.DataLibrary.Tests
         public override void OnData(Slice slice)
         {
             var data = slice.Get<EODHDMacroIndicators>();
-            if (data.TryGetValue(_datasetSymbol, out var gdp))
+            if (data.TryGetValue(_datasetSymbol, out var gdps))
             {
+                var gdp = gdps.FirstOrDefault() as EODHDMacroIndicator;
                 if (gdp.Value > 0m)
                 {
                     SetHoldings(_equitySymbol, 1);

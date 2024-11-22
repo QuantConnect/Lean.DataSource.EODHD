@@ -16,45 +16,51 @@
 
 using NodaTime;
 using QuantConnect.Data;
-using QuantConnect.Data.UniverseSelection;
-using QuantConnect.Util;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+using System.Globalization;
 
 namespace QuantConnect.DataSource;
 
 /// <summary>
-/// EODHDEconomicEvents data type
+/// EODHDEconomicEvent data type
 /// </summary>
-public class EODHDEconomicEvents : BaseDataCollection
+public class EODHDEconomicEvent : BaseData
 {
-    private static readonly EODHDEconomicEvent _factory = new();
+    /// <summary>
+    /// The economic event
+    /// </summary>
+    public string EventType { get; set; }
 
     /// <summary>
-    /// Return the URL string source of the file. This will be converted to a stream
+    /// The representation period of the event announcement
     /// </summary>
-    /// <param name="config">Configuration object</param>
-    /// <param name="date">Date of this source file</param>
-    /// <param name="isLiveMode">true if we're in live mode, false for backtesting mode</param>
-    /// <returns>String URL of source file.</returns>
-    public override SubscriptionDataSource GetSource(SubscriptionDataConfig config, DateTime date, bool isLiveMode)
-    {
-        var country = config.Symbol.Value.Split('/')[0];
-        return new SubscriptionDataSource(
-            Path.Combine(
-                Globals.DataFolder,
-                "alternative",
-                "eodhd",
-                "economicevents",
-                $"{country.ToLowerInvariant()}",
-                $"{date:yyyyMMdd}.csv"
-            ),
-            SubscriptionTransportMedium.LocalFile,
-            FileFormat.FoldingCollection
-        );
-    }
+    public string EventPeriod { get; set; }
+
+    /// <summary>
+    /// The country of the event. See https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3.
+    /// </summary>
+    public string Country { get; set; }
+
+    /// <summary>
+    /// The event announcement or start time in UTC
+    /// </summary>
+    public DateTime EventTime { get; set; }
+
+    /// <summary>
+    /// The previous figure of the announcement if any
+    /// </summary>
+    public decimal? Previous { get; set; }
+
+    /// <summary>
+    /// The estimated figure of the announcement if any
+    /// </summary>
+    public decimal? Estimate { get; set; }
+
+    /// <summary>
+    /// Time the data became available
+    /// </summary>
+    public override DateTime EndTime => Time.AddDays(1);
 
     /// <summary>
     /// Parses the data from the line provided and loads it into LEAN
@@ -66,7 +72,26 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// <returns>New instance</returns>
     public override BaseData Reader(SubscriptionDataConfig config, string line, DateTime date, bool isLiveMode)
     {
-        return _factory.Reader(config, line, date, isLiveMode);
+        var csv = line.Split(',');
+
+        var ticker = config.Symbol.Value.Split('/');
+        var eventType = csv[2];
+        if (ticker.Length > 1 && eventType != ticker[1].ToLowerInvariant())
+        {
+            return null;
+        }
+
+        return new EODHDEconomicEvent
+        {
+            Symbol = config.Symbol,
+            Country = ticker[0],
+            EventTime = Parse.DateTimeExact(csv[0], "yyyyMMdd HH:mm:ss"),
+            EventPeriod = csv[1],
+            EventType = eventType,
+            Previous = csv[3].IfNotNullOrEmpty<decimal?>(s => decimal.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)),
+            Estimate = csv[4].IfNotNullOrEmpty<decimal?>(s => decimal.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)),
+            Time = date,
+        };
     }
 
     /// <summary>
@@ -75,22 +100,26 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// <returns>A clone of the object</returns>
     public override BaseData Clone()
     {
-        return new EODHDEconomicEvents
+        return new EODHDEconomicEvent
         {
             Symbol = Symbol,
             Time = Time,
-            EndTime = EndTime,
-            Data = Data?.ToList(point => point.Clone())
+            EventType = EventType,
+            EventPeriod = EventPeriod,
+            Country = Country,
+            EventTime = EventTime,
+            Previous = Previous,
+            Estimate = Previous
         };
     }
 
     /// <summary>
-    /// Indicates whether the data source is tied to an underlying symbol and requires that corporate indicators be applied to it as well, such as renames and delistings
+    /// Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
     /// </summary>
     /// <returns>false</returns>
     public override bool RequiresMapping()
     {
-        return _factory.RequiresMapping();
+        return false;
     }
 
     /// <summary>
@@ -100,7 +129,7 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// <returns>true</returns>
     public override bool IsSparseData()
     {
-        return _factory.IsSparseData();
+        return true;
     }
 
     /// <summary>
@@ -108,7 +137,7 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// </summary>
     public override string ToString()
     {
-        return $"[{string.Join(",", Data.Select(data => data.ToString()))}]";
+        return $"{EventTime} - {EventPeriod} - {EventType} - {Previous} - {Estimate}";
     }
 
     /// <summary>
@@ -116,7 +145,7 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// </summary>
     public override Resolution DefaultResolution()
     {
-        return _factory.DefaultResolution();
+        return Resolution.Daily;
     }
 
     /// <summary>
@@ -124,7 +153,7 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// </summary>
     public override List<Resolution> SupportedResolutions()
     {
-        return _factory.SupportedResolutions();
+        return DailyResolution;
     }
 
     /// <summary>
@@ -133,6 +162,6 @@ public class EODHDEconomicEvents : BaseDataCollection
     /// <returns>The <see cref="T:NodaTime.DateTimeZone" /> of this data type</returns>
     public override DateTimeZone DataTimeZone()
     {
-        return _factory.DataTimeZone();
+        return DateTimeZone.Utc;
     }
 }

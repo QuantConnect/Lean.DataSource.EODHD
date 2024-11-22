@@ -51,14 +51,17 @@ public class Program
         try
         {
             // Pass in the values we got from the configuration into the downloader/converter.
-            downloaders.Add(new EODHDUpcomingEarningsDataDownloader(destinationDirectory, apiKey, deploymentDate));
-            downloaders.Add(new EODHDUpcomingIPOsDataDownloader(destinationDirectory, apiKey, deploymentDate));
-            downloaders.Add(new EODHDUpcomingSplitsDataDownloader(destinationDirectory, apiKey, deploymentDate));
-            downloaders.Add(new EODHDEconomicEventsDataDownloader(destinationDirectory, apiKey, deploymentDate));
-
-            // Avoid long-running downloader/converter
             if (Config.GetBool("process-macro-indicators"))
-                downloaders.Add(new EODHDMacroIndicatorsDataDownloader(destinationDirectory, apiKey));            
+            {
+                downloaders.Add(new EODHDMacroIndicatorsDataDownloader(destinationDirectory, apiKey));
+            }
+            else
+            {
+                downloaders.Add(new EODHDUpcomingEarningsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+                downloaders.Add(new EODHDUpcomingIPOsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+                downloaders.Add(new EODHDUpcomingSplitsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+                downloaders.Add(new EODHDEconomicEventsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+            }   
         }
         catch (Exception err)
         {

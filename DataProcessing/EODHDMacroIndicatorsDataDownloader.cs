@@ -158,7 +158,7 @@ public class EODHDMacroIndicatorsDataDownloader : EODHDBaseDataDownloader
                 success = false;
                 continue;
             }
-            Log.Trace($"EODHDMacroIndicatorsDataDownloader.Run(): Finished in {stopwatch.Elapsed.ToStringInvariant(null)}");
+            Log.Trace($"EODHDMacroIndicatorsDataDownloader.Run(): Finished in {stopwatch.Elapsed.TotalSeconds:f3} seconds");
         }
         return success;
     }

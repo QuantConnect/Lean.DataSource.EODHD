@@ -313,6 +313,9 @@ public partial class EODHDEconomicEventsDataDownloader : EODHDBaseDataDownloader
     {
         var success = true;
 
+        // This dataset starts in 2019
+        if (processDate.Year < 2019) processDate = new(2019, 1, 1);
+
         while (processDate <= DeploymentDate)
         {
             var stopwatch = Stopwatch.StartNew();
@@ -363,7 +366,7 @@ public partial class EODHDEconomicEventsDataDownloader : EODHDBaseDataDownloader
                 continue;
             }
 
-            Log.Trace($"EODHDEconomicEventsDataDownloader.Run(): Finished in {stopwatch.Elapsed.ToStringInvariant(null)}");
+            Log.Trace($"EODHDEconomicEventsDataDownloader.Run(): Finished in {stopwatch.Elapsed.TotalSeconds:f3} seconds");
             processDate = processDate.AddDays(1);
         }
         return success;

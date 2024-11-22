@@ -17,6 +17,7 @@
 using QuantConnect.Data;
 using QuantConnect.Algorithm;
 using QuantConnect.DataSource;
+using System.Linq;
 
 namespace QuantConnect.DataLibrary.Tests
 {
@@ -35,7 +36,7 @@ namespace QuantConnect.DataLibrary.Tests
             SetStartDate(2013, 10, 07);  //Set Start Date
             SetEndDate(2013, 10, 11);    //Set End Date
             _equitySymbol = AddEquity("SPY").Symbol;
-            AddData<EODHDEconomicEvents>(EODHD.Events.UnitedStates.MarkitManufacturingPurchasingManagersIndex);
+            AddData<EODHDEconomicEvents>(EODHD.Events.UnitedStates.ConsumerInflationExpectations);
         }
 
         /// <summary>
@@ -45,8 +46,9 @@ namespace QuantConnect.DataLibrary.Tests
         public override void OnData(Slice slice)
         {
             var data = slice.Get<EODHDEconomicEvents>();
-            foreach (var (_, economicEvent) in data)
+            foreach (var (_, economicEvents) in data)
             {
+                var economicEvent = economicEvents.FirstOrDefault() as EODHDEconomicEvent;
                 if (economicEvent.Previous.HasValue && economicEvent.Estimate.HasValue)
                 {
                     if (economicEvent.Previous.Value < economicEvent.Estimate.Value)

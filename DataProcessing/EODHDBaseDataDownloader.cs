@@ -118,6 +118,13 @@ public partial class EODHDBaseDataDownloader : IDisposable
                     response = client.GetAsync(finalRequestUri).Result; // Reissue the request. The DefaultRequestHeaders configured on the client will be used, so we don't have to set them again.
                 }
 
+                if (response.StatusCode == HttpStatusCode.PaymentRequired)
+                {
+                    Log.Error($"HttpRequester({Endpoint}): {response.ReasonPhrase}");
+                    response.DisposeSafely();
+                    return string.Empty;
+                }
+
                 response.EnsureSuccessStatusCode();
 
                 var result = await response.Content.ReadAsStringAsync();

@@ -65,7 +65,7 @@ public class EODHDUpcomingEarningsDataDownloader : EODHDBaseDataDownloader
     public override async Task<bool> Run(DateTime processDate)
     {
         var success = true;
-        
+
         while (processDate <= DeploymentDate)
         {
             var stopwatch = Stopwatch.StartNew();
@@ -128,7 +128,7 @@ public class EODHDUpcomingEarningsDataDownloader : EODHDBaseDataDownloader
                 continue;
             }
 
-            Log.Trace($"EODHDUpcomingEarningsDataDownloader.Run(): Finished in {stopwatch.Elapsed.ToStringInvariant(null)}");
+            Log.Trace($"EODHDUpcomingEarningsDataDownloader.Run(): Finished in {stopwatch.Elapsed.TotalSeconds:f3} seconds");
             processDate = processDate.AddDays(1);
         }
         return success;
