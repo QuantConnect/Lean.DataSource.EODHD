@@ -166,6 +166,17 @@ public partial class EODHDBaseDataDownloader : IDisposable
     }
 
     /// <summary>
+    /// Saves contents to disk, deleting existing zip files
+    /// </summary>
+    /// <param name="destinationFolder">Final destination of the data</param>
+    /// <param name="date">Date used to name the output file. E.g. 20241127.csv</param>
+    /// <param name="contents">Contents to write</param>
+    protected virtual void SaveContentToFile(string destinationFolder, DateTime date, IEnumerable<string> contents)
+    {
+        SaveContentToFile(destinationFolder, $"{date:yyyyMMdd}", contents);
+    }
+
+    /// <summary>
     /// Tries to normalize a potentially defunct ticker into a normal ticker.
     /// </summary>
     /// <param name="ticker">Ticker as received from Estimize</param>

@@ -156,7 +156,8 @@ public class EODHDUpcomingIPOs : BaseData
             OfferPrice = csv[9].IfNotNullOrEmpty<decimal?>(s => decimal.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)),
             Shares = csv[10].IfNotNullOrEmpty<decimal?>(s => decimal.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)),
             DealType = (EODHD.DealType)Enum.Parse(typeof(EODHD.DealType), csv[11]),
-            Time = date,
+            // `date` represents the end of the period while Time the start
+            Time = date.AddDays(-1),
         };
     }
 

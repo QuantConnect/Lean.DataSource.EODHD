@@ -356,7 +356,7 @@ public partial class EODHDEconomicEventsDataDownloader : EODHDBaseDataDownloader
 
                 foreach (var (country, events) in eventsByCountry)
                 {
-                    SaveContentToFile(country.ToLowerInvariant(), $"{processDate.AddDays(-1):yyyyMMdd}", events);
+                    SaveContentToFile(country.ToLowerInvariant(), processDate, events);
                 }
             }
             catch (Exception e)

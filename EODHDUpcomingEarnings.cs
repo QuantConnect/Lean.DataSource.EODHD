@@ -88,7 +88,8 @@ public class EODHDUpcomingEarnings : BaseData
             ReportDate = parsedDate,
             ReportTime = hasTime ? reportTime : null,
             Estimate = csv[4].IfNotNullOrEmpty<decimal?>(s => decimal.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)),
-            Time = date,
+            // `date` represents the end of the period while Time the start
+            Time = date.AddDays(-1),
         };
     }
 

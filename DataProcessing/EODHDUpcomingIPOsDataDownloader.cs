@@ -112,7 +112,7 @@ public class EODHDUpcomingIPOsDataDownloader : EODHDBaseDataDownloader
 
                 if (csvContents.Count != 0)
                 {
-                    SaveContentToFile(string.Empty, $"{processDate.AddDays(-1):yyyyMMdd}", csvContents);
+                    SaveContentToFile(string.Empty, processDate, csvContents);
                 }
             }
             catch (Exception e)

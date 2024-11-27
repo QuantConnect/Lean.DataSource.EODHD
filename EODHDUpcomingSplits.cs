@@ -86,7 +86,8 @@ public class EODHDUpcomingSplits : BaseData
             SplitDate = Parse.DateTimeExact(csv[2], "yyyyMMdd"),
             Optionable = csv[3] != "N",
             Value = decimal.Parse(csv[4], NumberStyles.Any, CultureInfo.InvariantCulture),
-            Time = date,
+            // `date` represents the end of the period while Time the start
+            Time = date.AddDays(-1),
         };
     }
 

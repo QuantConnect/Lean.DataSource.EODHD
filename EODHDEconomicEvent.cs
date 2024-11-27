@@ -90,7 +90,8 @@ public class EODHDEconomicEvent : BaseData
             EventType = eventType,
             Previous = csv[3].IfNotNullOrEmpty<decimal?>(s => decimal.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)),
             Estimate = csv[4].IfNotNullOrEmpty<decimal?>(s => decimal.Parse(s, NumberStyles.Any, CultureInfo.InvariantCulture)),
-            Time = date,
+            // `date` represents the end of the period while Time the start
+            Time = date.AddDays(-1),
         };
     }
 
