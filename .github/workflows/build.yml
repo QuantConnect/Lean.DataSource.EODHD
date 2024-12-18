@@ -49,6 +49,6 @@ jobs:
             # BuildDataSource
             dotnet build ./QuantConnect.DataSource.csproj /p:Configuration=Release /v:quiet /p:WarningLevel=1 && \
             # BuildTests
-            otnet build ./tests/Tests.csproj /p:Configuration=Release /v:quiet /p:WarningLevel=1 && \
+            dotnet build ./tests/Tests.csproj /p:Configuration=Release /v:quiet /p:WarningLevel=1 && \
             # Run Tests
             dotnet test ./tests/bin/Release/net9.0/Tests.dll
