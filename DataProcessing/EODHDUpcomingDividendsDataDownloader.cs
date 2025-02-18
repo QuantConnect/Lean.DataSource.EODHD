@@ -142,15 +142,15 @@ public class EODHDUpcomingDividendsDataDownloader : EODHDBaseDataDownloader
         
         [JsonProperty("declarationDate")]
         [JsonConverter(typeof(DateTimeJsonConverter), "yyyy-MM-dd")]
-        public DateTime DeclarationDate { get; set; }
+        public DateTime? DeclarationDate { get; set; }
         
         [JsonProperty("recordDate")]
         [JsonConverter(typeof(DateTimeJsonConverter), "yyyy-MM-dd")]
-        public DateTime RecordDate { get; set; }
+        public DateTime? RecordDate { get; set; }
         
         [JsonProperty("paymentDate")]
         [JsonConverter(typeof(DateTimeJsonConverter), "yyyy-MM-dd")]
-        public DateTime PaymentDate { get; set; }
+        public DateTime? PaymentDate { get; set; }
         
         [JsonProperty("dividend")]
         public decimal Dividend { get; set; }
