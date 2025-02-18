@@ -21,6 +21,8 @@
     <None Remove="DataProcessing\**" />
     <Compile Remove="EODHDEconomicEventsAlgorithm.cs" />
     <Compile Remove="EODHDMacroIndicatorsAlgorithm.cs" />
+    <Compile Remove="EODHDUpcomingDividendsAlgorithm.cs" />
+    <Compile Remove="EODHDUpcomingDividendsUniverseExampleAlgorithm.cs" />
     <Compile Remove="EODHDUpcomingEarningsExampleAlgorithm.cs" />
     <Compile Remove="EODHDUpcomingEarningsUniverseExampleAlgorithm.cs" />
     <Compile Remove="EODHDUpcomingIPOsAlgorithm.cs" />

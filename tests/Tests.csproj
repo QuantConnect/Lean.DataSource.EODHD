@@ -6,6 +6,8 @@
   <ItemGroup>
     <Compile Include="..\EODHDEconomicEventsAlgorithm.cs" Link="EODHDEconomicEventsAlgorithm.cs" />
     <Compile Include="..\EODHDMacroIndicatorsAlgorithm.cs" Link="EODHDMacroIndicatorsAlgorithm.cs" />
+    <Compile Include="..\EODHDUpcomingDividendsAlgorithm.cs" Link="EODHDUpcomingDividendsAlgorithm.cs" />
+    <Compile Include="..\EODHDUpcomingDividendsUniverseExampleAlgorithm.cs" Link="EODHDUpcomingDividendsUniverseExampleAlgorithm.cs" />
     <Compile Include="..\EODHDUpcomingEarningsExampleAlgorithm.cs" Link="EODHDUpcomingEarningsExampleAlgorithm.cs" />
     <Compile Include="..\EODHDUpcomingEarningsUniverseExampleAlgorithm.cs" Link="EODHDUpcomingEarningsUniverseExampleAlgorithm.cs" />
     <Compile Include="..\EODHDUpcomingIPOsAlgorithm.cs" Link="EODHDUpcomingIPOsAlgorithm.cs" />
