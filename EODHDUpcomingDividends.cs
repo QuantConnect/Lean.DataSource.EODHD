@@ -23,24 +23,34 @@ using QuantConnect.Data;
 namespace QuantConnect.DataSource;
 
 /// <summary>
-/// EODHDUpcomingSplits data type.
+/// EODHDUpcomingDividends data type.
 /// </summary>
-public class EODHDUpcomingSplits : BaseData
+public class EODHDUpcomingDividends : BaseData
 {
     /// <summary>
-    /// Date of the split will happen
+    /// Date of the dividend will happen
     /// </summary>
-    public DateTime SplitDate { get; set; }
+    public DateTime DividendDate { get; set; }
 
     /// <summary>
-    /// If this is split optionable for shareholders.
+    /// Date of the dividend being declared
     /// </summary>
-    public bool Optionable { get; set; }
+    public DateTime? DeclarationDate { get; set; }
 
     /// <summary>
-    /// Ratio of old shares / new shares.
+    /// Date on which the investor must be on the company's books in order to receive a dividend
     /// </summary>
-    public decimal SplitFactor => Value;
+    public DateTime? ReportDate { get; set; }
+
+    /// <summary>
+    /// Date of the dividend being actually paid/delivered
+    /// </summary>
+    public DateTime? PaymentDate { get; set; }
+
+    /// <summary>
+    /// Absolute payment of dividend per share
+    /// </summary>
+    public decimal Dividend => Value;
 
     /// <summary>
     /// Time the data became available
@@ -61,7 +71,7 @@ public class EODHDUpcomingSplits : BaseData
                 Globals.DataFolder,
                 "alternative",
                 "eodhd",
-                "upcomingsplits",
+                "upcomingdividends",
                 $"{date:yyyyMMdd}.csv"
             ),
             SubscriptionTransportMedium.LocalFile
@@ -80,14 +90,16 @@ public class EODHDUpcomingSplits : BaseData
     {
         var csv = line.Split(',');
 
-        return new EODHDUpcomingSplits
+        return new EODHDUpcomingDividends
         {
             Symbol = new Symbol(SecurityIdentifier.Parse(csv[0]), csv[1]),
-            SplitDate = Parse.DateTimeExact(csv[2], "yyyyMMdd"),
-            Optionable = csv[3] != "N",
-            Value = decimal.Parse(csv[4], NumberStyles.Any, CultureInfo.InvariantCulture),
+            DividendDate = Parse.DateTimeExact(csv[2], "yyyyMMdd"),
+            Value = decimal.Parse(csv[3], NumberStyles.Any, CultureInfo.InvariantCulture),
+            DeclarationDate = csv[4].IfNotNullOrEmpty<DateTime?>(s => Parse.DateTimeExact(s, "yyyyMMdd")),
+            ReportDate = csv[5].IfNotNullOrEmpty<DateTime?>(s => Parse.DateTimeExact(s, "yyyyMMdd")),
+            PaymentDate = csv[6].IfNotNullOrEmpty<DateTime?>(s => Parse.DateTimeExact(s, "yyyyMMdd")),
             // `date` represents the end of the period while Time the start
-            Time = date.AddDays(-1),
+            Time = date.AddDays(-1)
         };
     }
 
@@ -97,12 +109,14 @@ public class EODHDUpcomingSplits : BaseData
     /// <returns>A clone of the object</returns>
     public override BaseData Clone()
     {
-        return new EODHDUpcomingSplits
+        return new EODHDUpcomingDividends
         {
             Symbol = Symbol,
             Time = Time,
-            SplitDate = SplitDate,
-            Optionable = Optionable,
+            DividendDate = DividendDate,
+            DeclarationDate = DeclarationDate,
+            ReportDate = ReportDate,
+            PaymentDate = PaymentDate,
             Value = Value,
         };
     }
@@ -131,7 +145,7 @@ public class EODHDUpcomingSplits : BaseData
     /// </summary>
     public override string ToString()
     {
-        return $"{Symbol} - {SplitDate} - {Optionable} - {SplitFactor}";
+        return $"{Symbol} - {DividendDate} - {Dividend}";
     }
 
     /// <summary>

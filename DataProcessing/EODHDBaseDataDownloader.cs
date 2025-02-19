@@ -157,12 +157,22 @@ public partial class EODHDBaseDataDownloader : IDisposable
     /// <param name="destinationFolder">Final destination of the data</param>
     /// <param name="name">file name</param>
     /// <param name="contents">Contents to write</param>
-    protected virtual void SaveContentToFile(string destinationFolder, string name, IEnumerable<string> contents)
+    protected virtual void SaveContentToFile(string destinationFolder, string name, IEnumerable<string> newContents)
     {
         var path = Path.Combine(_destinationFolder, destinationFolder);
-        if (!string.IsNullOrWhiteSpace(destinationFolder)) Directory.CreateDirectory(path);
+        if (!string.IsNullOrWhiteSpace(destinationFolder))
+        {
+            Directory.CreateDirectory(path);
+        }
         path = Path.Combine(path, $"{name.ToLowerInvariant()}.csv");
-        File.WriteAllLines(path, new HashSet<string>(contents).OrderBy(x => x.Split(',').First()));
+
+        var content = new HashSet<string>();
+        if (File.Exists(path))
+        {
+            content.UnionWith(File.ReadAllLines(path));
+        }
+        content.UnionWith(newContents);
+        File.WriteAllLines(path, content.OrderBy(x => x.Split(',').First()));
     }
 
     /// <summary>

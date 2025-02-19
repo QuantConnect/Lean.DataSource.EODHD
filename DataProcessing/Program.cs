@@ -60,6 +60,8 @@ public class Program
                 downloaders.Add(new EODHDUpcomingEarningsDataDownloader(destinationDirectory, apiKey, deploymentDate));
                 downloaders.Add(new EODHDUpcomingIPOsDataDownloader(destinationDirectory, apiKey, deploymentDate));
                 downloaders.Add(new EODHDUpcomingSplitsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+                // Upcoming 7 days data.
+                downloaders.Add(new EODHDUpcomingDividendsDataDownloader(destinationDirectory, apiKey, deploymentDate.AddDays(7)));
                 downloaders.Add(new EODHDEconomicEventsDataDownloader(destinationDirectory, apiKey, deploymentDate));
             }   
         }
