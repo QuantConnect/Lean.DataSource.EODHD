@@ -127,7 +127,7 @@ public class EODHDUpcomingDividends : BaseData
     /// <returns>false</returns>
     public override bool RequiresMapping()
     {
-        return false;
+        return true;
     }
 
     /// <summary>
