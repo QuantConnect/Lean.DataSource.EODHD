@@ -113,7 +113,7 @@ public class EODHDUpcomingSplits : BaseData
     /// <returns>false</returns>
     public override bool RequiresMapping()
     {
-        return true;
+        return false;
     }
 
     /// <summary>
