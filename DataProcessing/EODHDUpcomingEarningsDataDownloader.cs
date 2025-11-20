@@ -89,7 +89,7 @@ public class EODHDUpcomingEarningsDataDownloader : EODHDBaseDataDownloader
                 var csvContents = new List<string>();
 
                 // Only primary stocks traded in US
-                foreach (var earning in metadata.Earnings.Where(x => x.Ticker.EndsWith(".US") && x.Currency?.Trim() == "USD"))
+                foreach (var earning in metadata.Earnings.Where(x => x.Ticker.EndsWith(".US") && SupportedCurrencies.Contains(x.Currency)))
                 {
                     var ticker = earning.Ticker.Remove(earning.Ticker.Length - 3);      // Remove the last 3 char ".US"
                     if (!TryNormalizeDefunctTicker(ticker, out var nonDefunctTicker))

@@ -30,8 +30,6 @@ namespace QuantConnect.DataProcessing;
 /// </summary>
 public class EODHDUpcomingIPOsDataDownloader : EODHDBaseDataDownloader
 {
-    private static readonly List<string> _currenciesSupported = new() { "USD", "US", string.Empty, null };
-
     /// <summary>
     /// Dataset endpoint
     /// </summary>
@@ -83,7 +81,7 @@ public class EODHDUpcomingIPOsDataDownloader : EODHDBaseDataDownloader
                 var csvContents = new List<string>();
 
                 // Include only the primary stocks traded in US exchanges
-                foreach (var ipo in metadata.IPOs.Where(x => x.Ticker.EndsWith(".US") && _currenciesSupported.Contains(x.Currency)))
+                foreach (var ipo in metadata.IPOs.Where(x => x.Ticker.EndsWith(".US") && SupportedCurrencies.Contains(x.Currency)))
                 {
                     var ticker = ipo.Ticker.Remove(ipo.Ticker.Length - 3);      // Remove the last 3 char ".US"
                     if (!TryNormalizeDefunctTicker(ticker, out var nonDefunctTicker))

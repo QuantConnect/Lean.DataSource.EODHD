@@ -33,10 +33,12 @@ namespace QuantConnect.DataProcessing;
 /// </summary>
 public partial class EODHDBaseDataDownloader : IDisposable
 {
+    public static readonly List<string> SupportedCurrencies = ["USD", "US", string.Empty, null];
+
     private readonly string _apiToken;
     private readonly string _destinationFolder;
     private readonly int _maxRetries = 5;
-    private readonly List<char> _defunctDelimiters = new() { '-', '_' };
+    private readonly List<char> _defunctDelimiters = ['-', '_'];
     private readonly RateGate _indexGate = new(
         Config.GetInt("rate-limit-requests", 10),
         TimeSpan.FromSeconds(Config.GetDouble("rate-limit", 1.1)));
