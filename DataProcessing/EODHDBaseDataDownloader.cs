@@ -173,7 +173,11 @@ public partial class EODHDBaseDataDownloader : IDisposable
         {
             content.UnionWith(File.ReadAllLines(path));
         }
-        content.UnionWith(newContents);
+        // Vendor free-text fields (e.g. company names) may contain embedded new lines,
+        // which would split a single record across multiple lines of the output file
+        content.UnionWith(newContents.Select(x => x.Replace("\r", string.Empty).Replace("\n", string.Empty)));
+        // The first column (e.g. the security identifier) must never be empty
+        content.RemoveWhere(x => string.IsNullOrWhiteSpace(x.Split(',')[0]));
         File.WriteAllLines(path, content.OrderBy(x => x.Split(',').First()));
     }
 

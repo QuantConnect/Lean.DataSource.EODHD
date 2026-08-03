@@ -46,6 +46,20 @@ public class EODHDUpcomingEarningsTests
         AssertAreEqual(expected, result);
     }
 
+    [Test]
+    public void ReaderParsesValidLine()
+    {
+        var factory = new EODHDUpcomingEarnings();
+        var line = "AAPL R735QTJ8XC9X,AAPL,20230823,BeforeMarket,1.21";
+        var result = (EODHDUpcomingEarnings)factory.Reader(null, line, new DateTime(2023, 8, 20), false);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("AAPL", result.Symbol.Value);
+        Assert.AreEqual(new DateTime(2023, 8, 23), result.ReportDate);
+        Assert.AreEqual(EODHD.ReportTime.BeforeMarket, result.ReportTime);
+        Assert.AreEqual(1.21m, result.Estimate);
+    }
+
     private static void AssertAreEqual(object expected, object result, bool filterByCustomAttributes = false)
     {
         foreach (var propertyInfo in expected.GetType().GetProperties())

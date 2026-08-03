@@ -97,7 +97,8 @@ public class EODHDUpcomingIPOsDataDownloader : EODHDBaseDataDownloader
                     }
 
                     var sid = SecurityIdentifier.GenerateEquity(ipoDate, nonDefunctTicker, Market.USA);
-                    var name = ipo.Name.Replace(",", string.Empty);
+                    // Remove characters that would corrupt the CSV: commas shift columns, newlines split the record across lines
+                    var name = ipo.Name.Replace(",", string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty).Trim();
                     var filingDate = DateTimeToString(ipo.FilingDate);
                     var amendedDate = DateTimeToString(ipo.AmendedDate);
                     var priceFrom = NumberToString(ipo.PriceFrom);

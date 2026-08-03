@@ -46,6 +46,27 @@ public class EODHDUpcomingIPOsTests
         AssertAreEqual(expected, result);
     }
 
+    [Test]
+    public void ReaderParsesValidLine()
+    {
+        var factory = new EODHDUpcomingIPOs();
+        var line = "USNG YSLK5RJ61X7P,USNG,Amplify Samsung U.S. Natural Gas Infrastructure ETF,NYSE,20250520,20250520,20250520,12.62,12.62,,,Expected";
+        var result = (EODHDUpcomingIPOs)factory.Reader(null, line, new DateTime(2025, 5, 13), false);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("USNG", result.Symbol.Value);
+        Assert.AreEqual("Amplify Samsung U.S. Natural Gas Infrastructure ETF", result.Name);
+        Assert.AreEqual(Exchange.NYSE, result.Exchange);
+        Assert.AreEqual(new DateTime(2025, 5, 20), result.IpoDate);
+        Assert.AreEqual(new DateTime(2025, 5, 20), result.FilingDate);
+        Assert.AreEqual(new DateTime(2025, 5, 20), result.AmendedDate);
+        Assert.AreEqual(12.62m, result.LowestPrice);
+        Assert.AreEqual(12.62m, result.HighestPrice);
+        Assert.IsNull(result.OfferPrice);
+        Assert.IsNull(result.Shares);
+        Assert.AreEqual(EODHD.DealType.Expected, result.DealType);
+    }
+
     private static void AssertAreEqual(object expected, object result, bool filterByCustomAttributes = false)
     {
         foreach (var propertyInfo in expected.GetType().GetProperties())

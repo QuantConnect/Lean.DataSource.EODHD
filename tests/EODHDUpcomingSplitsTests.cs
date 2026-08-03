@@ -46,6 +46,20 @@ public class EODHDUpcomingSplitsTests
         AssertAreEqual(expected, result);
     }
 
+    [Test]
+    public void ReaderParsesValidLine()
+    {
+        var factory = new EODHDUpcomingSplits();
+        var line = "AAPL R735QTJ8XC9X,AAPL,20200831,Y,0.25";
+        var result = (EODHDUpcomingSplits)factory.Reader(null, line, new DateTime(2020, 8, 28), false);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("AAPL", result.Symbol.Value);
+        Assert.AreEqual(new DateTime(2020, 8, 31), result.SplitDate);
+        Assert.IsTrue(result.Optionable);
+        Assert.AreEqual(0.25m, result.SplitFactor);
+    }
+
     private static void AssertAreEqual(object expected, object result, bool filterByCustomAttributes = false)
     {
         foreach (var propertyInfo in expected.GetType().GetProperties())
