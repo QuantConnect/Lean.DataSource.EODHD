@@ -1,5 +1,6 @@
 {
   "data-folder": "../../../Data",
   "vendor-auth-token": "",
-  "process-macro-indicators": false
+  "dataset-name": "intraday",
+  "symbols": "USDKRW.FOREX"
 }
