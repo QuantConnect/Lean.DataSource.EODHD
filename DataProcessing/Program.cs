@@ -17,7 +17,6 @@ using QuantConnect.Configuration;
 using QuantConnect.Logging;
 using QuantConnect.Util;
 using System;
-using System.Collections.Generic;
 using System.IO;
 
 namespace QuantConnect.DataProcessing;
@@ -27,6 +26,8 @@ namespace QuantConnect.DataProcessing;
 /// </summary>
 public class Program
 {
+    private const string VendorName = "eodhd";
+
     /// <summary>
     /// Entrypoint of the program
     /// </summary>
@@ -42,58 +43,91 @@ public class Program
 
         // Get the config values first before running. These values are set for us
         // automatically to the value set on the website when defining this data type
+        var dataset = Config.Get("dataset-name", "intraday").Trim().ToLowerInvariant();
         var destinationDirectory = Path.Combine(Config.Get("temp-output-directory", "/temp-output-directory"), "alternative");
         var deploymentDateValue = Environment.GetEnvironmentVariable("QC_DATAFLEET_DEPLOYMENT_DATE");
         var deploymentDate = string.IsNullOrWhiteSpace(deploymentDateValue) ? DateTime.UtcNow.Date : Parse.DateTimeExact(deploymentDateValue, "yyyyMMdd");
         var processDate = Parse.DateTimeExact(Config.Get("process-start-date", $"{deploymentDate:yyyyMMdd}"), "yyyyMMdd");
-        var downloaders = new List<EODHDBaseDataDownloader>();
 
-        try
+        switch (dataset)
         {
-            // Pass in the values we got from the configuration into the downloader/converter.
-            if (Config.GetBool("process-macro-indicators"))
-            {
-                downloaders.Add(new EODHDMacroIndicatorsDataDownloader(destinationDirectory, apiKey));
-            }
-            else
-            {
-                downloaders.Add(new EODHDUpcomingEarningsDataDownloader(destinationDirectory, apiKey, deploymentDate));
-                downloaders.Add(new EODHDUpcomingIPOsDataDownloader(destinationDirectory, apiKey, deploymentDate));
-                downloaders.Add(new EODHDUpcomingSplitsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+            case "upcomingearnings":
+                RunDownloader(dataset, processDate, () => new EODHDUpcomingEarningsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+                break;
+
+            case "upcomingipos":
+                RunDownloader(dataset, processDate, () => new EODHDUpcomingIPOsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+                break;
+
+            case "upcomingsplits":
+                RunDownloader(dataset, processDate, () => new EODHDUpcomingSplitsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+                break;
+
+            case "upcomingdividends":
                 // Upcoming 7 days data.
-                downloaders.Add(new EODHDUpcomingDividendsDataDownloader(destinationDirectory, apiKey, deploymentDate.AddDays(7)));
-                downloaders.Add(new EODHDEconomicEventsDataDownloader(destinationDirectory, apiKey, deploymentDate));
-            }   
-        }
-        catch (Exception err)
-        {
-            Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): Failed to construct downloader/converter");
-            Environment.Exit(1);
-        }
+                RunDownloader(dataset, processDate, () => new EODHDUpcomingDividendsDataDownloader(destinationDirectory, apiKey, deploymentDate.AddDays(7)));
+                break;
 
-        // No need to edit anything below here for most use cases.
-        // The downloader/converter is ran and cleaned up for you safely here.
-        var success = true;
-        foreach (var downloader in downloaders)
-        {
-            try
-            {
-                if (!downloader.Run(processDate).Result)
+            case "economicevents":
+                RunDownloader(dataset, processDate, () => new EODHDEconomicEventsDataDownloader(destinationDirectory, apiKey, deploymentDate));
+                break;
+
+            case "macroindicators":
+                RunDownloader(dataset, processDate, () => new EODHDMacroIndicatorsDataDownloader(destinationDirectory, apiKey));
+                break;
+
+            case "intraday":
+                // Comma-separated EODHD symbols, e.g. "USDKRW.FOREX,EURUSD.FOREX"
+                var symbols = Config.Get("symbols").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (symbols.Length == 0)
                 {
-                    Log.Error($"QuantConnect.DataProcessing.Program.Main(): Failed to download/process {downloader.VendorName} {downloader.VendorDataName} data");
-                    success = false;
+                    Log.Error($"QuantConnect.DataProcessing.Program.Main(): The '{dataset}' dataset requires the \"symbols\" configuration, e.g. \"USDKRW.FOREX,EURUSD.FOREX\"");
+                    Environment.Exit(1);
                 }
-            }
-            catch (Exception err)
-            {
-                Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): The downloader/converter for {downloader.VendorDataName} {downloader.VendorDataName} data exited unexpectedly");
-                success = false;
-            }
-            // Run cleanup of the downloader/converter once it has finished or crashed.
-            downloader.DisposeSafely();
+                RunDownloader(dataset, processDate, () => new EODHDIntradayDataDownloader(destinationDirectory, Globals.DataFolder, apiKey, deploymentDate, symbols));
+                break;
+
+            default:
+                var validDatasets = string.Join(", ", "upcomingearnings", "upcomingipos", "upcomingsplits",
+                    "upcomingdividends", "economicevents", "macroindicators", "intraday");
+                Log.Error($"QuantConnect.DataProcessing.Program.Main(): Unknown dataset '{dataset}'. Valid \"dataset-name\" options: {validDatasets}");
+                Environment.Exit(1);
+                break;
         }
 
         // The downloader/converter was successful
-        Environment.Exit(success ? 0 : 1);
+        Environment.Exit(0);
+    }
+
+    private static void RunDownloader(string vendorDataName, DateTime processDate, Func<EODHDBaseDataDownloader> factory)
+    {
+        EODHDBaseDataDownloader instance = null;
+        try
+        {
+            instance = factory();
+        }
+        catch (Exception err)
+        {
+            Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): The downloader/converter for {VendorName} {vendorDataName} data failed to be constructed");
+            Environment.Exit(1);
+        }
+
+        try
+        {
+            if (!instance.Run(processDate).Result)
+            {
+                Log.Error($"QuantConnect.DataProcessing.Program.Main(): Failed to download/process {VendorName} {vendorDataName} data");
+                Environment.Exit(1);
+            }
+        }
+        catch (Exception err)
+        {
+            Log.Error(err, $"QuantConnect.DataProcessing.Program.Main(): The downloader/converter for {VendorName} {vendorDataName} data exited unexpectedly");
+            Environment.Exit(1);
+        }
+        finally
+        {
+            instance.DisposeSafely();
+        }
     }
 }
