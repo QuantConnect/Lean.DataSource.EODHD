@@ -37,6 +37,15 @@ public class EODHDIntradayDataDownloader : EODHDBaseDataDownloader
     private const int _maxChunkDays = 120;
     private const string _interval = "1m";
 
+    // The vendor occasionally returns junk prints, e.g. an isolated 2.4 bar for USDKRW on 2024-01-02
+    // while the pair traded around 1300. Bars this far away from the prevailing price level are dropped:
+    // the widest genuine intraday deviation found in the whole USDKRW minute history is about 10%
+    private const decimal _maxRelativeDeviation = 0.25m;
+
+    // A day needs at least this many bars for its own median to be a meaningful price level reference.
+    // Sparser days fall back to the median of the whole downloaded window
+    private const int _minimumBarsForDailyReference = 10;
+
     private readonly string _dataFolder;
     private readonly string[] _symbols;
 
@@ -112,7 +121,7 @@ public class EODHDIntradayDataDownloader : EODHDBaseDataDownloader
 
                     // The vendor response may contain duplicate and out-of-window timestamps: deduplicate keyed
                     // by time, keeping the last occurrence like the LeanDataWriter merge policy does
-                    var quoteBars = new Dictionary<DateTime, BaseData>();
+                    var quoteBars = new Dictionary<DateTime, QuoteBar>();
                     foreach (var bar in JsonConvert.DeserializeObject<List<EODHDIntradayBar>>(result, JsonSerializerSettings)
                         .Where(x => x.Open.HasValue && x.High.HasValue && x.Low.HasValue && x.Close.HasValue))
                     {
@@ -133,9 +142,10 @@ public class EODHDIntradayDataDownloader : EODHDBaseDataDownloader
                     }
 
                     // Save after every window so an interrupted run keeps the completed windows
-                    if (quoteBars.Count != 0)
+                    var bars = RemoveOutliers([.. quoteBars.Values.OrderBy(x => x.Time)]);
+                    if (bars.Count != 0)
                     {
-                        writer.Write(quoteBars.Values.OrderBy(x => x.Time));
+                        writer.Write(bars);
                     }
                 }
                 catch (Exception e)
@@ -151,6 +161,71 @@ public class EODHDIntradayDataDownloader : EODHDBaseDataDownloader
         }
 
         return success;
+    }
+
+    /// <summary>
+    /// Discards the bars whose prices are implausibly far from the prevailing price level.
+    /// The vendor sporadically returns junk prints that would otherwise be written as real quotes,
+    /// e.g. an isolated 2.4 bar for USDKRW on 2024-01-02, a day the pair traded around 1300.
+    /// The reference level is the median close of the bar's own day, so a genuine trend across the
+    /// downloaded window never triggers the filter. Days with too few bars to give a meaningful
+    /// median fall back to the median of the whole window
+    /// </summary>
+    /// <param name="bars">The bars to filter, in chronological order</param>
+    /// <returns>The bars within <see cref="_maxRelativeDeviation"/> of their reference price level</returns>
+    public static List<QuoteBar> RemoveOutliers(List<QuoteBar> bars)
+    {
+        if (bars.Count == 0)
+        {
+            return bars;
+        }
+
+        var windowReference = GetMedian([.. bars.Select(x => x.Close)]);
+        var result = new List<QuoteBar>(bars.Count);
+
+        foreach (var dailyBars in bars.GroupBy(x => x.Time.Date))
+        {
+            List<decimal> closes = [.. dailyBars.Select(x => x.Close)];
+            var reference = closes.Count >= _minimumBarsForDailyReference ? GetMedian(closes) : windowReference;
+            if (reference <= 0)
+            {
+                // Without a usable reference the bars are kept: dropping a whole day on bad input would be worse
+                result.AddRange(dailyBars);
+                continue;
+            }
+
+            var upperBound = reference * (1 + _maxRelativeDeviation);
+            var lowerBound = reference * (1 - _maxRelativeDeviation);
+
+            foreach (var bar in dailyBars)
+            {
+                // Open and close are not guaranteed to sit within the high/low of a malformed bar
+                var highest = Math.Max(Math.Max(bar.Open, bar.High), Math.Max(bar.Low, bar.Close));
+                var lowest = Math.Min(Math.Min(bar.Open, bar.High), Math.Min(bar.Low, bar.Close));
+
+                if (highest > upperBound || lowest < lowerBound)
+                {
+                    Log.Error($"EODHDIntradayDataDownloader.RemoveOutliers(): Discarding {bar.Symbol.Value} outlier bar " +
+                        $"{bar.Time:yyyyMMdd HH:mm:ss} O={bar.Open} H={bar.High} L={bar.Low} C={bar.Close}. " +
+                        $"Reference price level: {reference}");
+                    continue;
+                }
+
+                result.Add(bar);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Gets the median of the given values. The list is sorted in place
+    /// </summary>
+    private static decimal GetMedian(List<decimal> values)
+    {
+        values.Sort();
+        var middle = values.Count / 2;
+        return values.Count % 2 != 0 ? values[middle] : (values[middle - 1] + values[middle]) / 2m;
     }
 
     /// <summary>
